@@ -27,11 +27,11 @@ jobs:
           node-version-file: .nvmrc
       - run: npm i -g pnpm@10.34.9 && pnpm install --frozen-lockfile
 
-      - uses: google-github-actions/auth@v2
+      - uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_DEPLOY_SA }}
-      - uses: google-github-actions/setup-gcloud@v2
+      - uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2
       - run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
 
       - name: UC-DEPLOY-06 image is tagged with the full commit SHA, never latest
@@ -46,7 +46,7 @@ jobs:
       - name: UC-DEPLOY-08 runtime image is non-root, shell-less and source-free
         run: scripts/ci/check-image.sh "$IMAGE"
       - name: UC-DEPLOY-07 Trivy fails on fixable critical or high vulnerabilities
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ${{ env.IMAGE }}
           severity: CRITICAL,HIGH
