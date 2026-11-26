@@ -48,8 +48,8 @@ jobs:
             pnpm exec stryker run
           fi
       - name: UC-DEPLOY-12 every criterion has a test and every named criterion exists
-        # Areas widen as milestones add tests; the target is every area.
-        run: pnpm tsx scripts/ci/check-criteria.ts OPS,DEPLOY,TASK,TRASH
+        # Every area is checked; criteria not built yet are listed in scripts/ci/pending-criteria.json.
+        run: pnpm tsx scripts/ci/check-criteria.ts
       - name: UC-DEPLOY-09 every FROM line is pinned by digest
         run: pnpm tsx scripts/ci/check-pins.ts Dockerfile
       - name: UC-DEPLOY-05 migration check

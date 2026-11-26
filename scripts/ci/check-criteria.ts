@@ -1,7 +1,6 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-
 /** Criterion IDs defined in the use-case tables (withdrawn, struck-through ones are skipped). */
 export function definedCriteria(markdown: string): string[] {
   const ids: string[] = [];
@@ -31,6 +30,31 @@ export function unknownCriteria(defined: string[], covered: Set<string>): string
   return [...covered].filter((id) => !defined.includes(id));
 }
 
+export interface CriteriaReport {
+  /** Not pending and no test. */
+  missing: string[];
+  /** Listed as pending although a test or step already covers it. */
+  pendingButCovered: string[];
+  /** Pending entries that name no defined criterion. */
+  unknownPending: string[];
+  /** Tests or steps naming a criterion that no use case defines. */
+  unknownCovered: string[];
+}
+
+export function checkCriteria(
+  defined: string[],
+  covered: Set<string>,
+  pending: Record<string, string>,
+): CriteriaReport {
+  const pendingIds = Object.keys(pending);
+  return {
+    missing: defined.filter((id) => !covered.has(id) && !(id in pending)),
+    pendingButCovered: pendingIds.filter((id) => covered.has(id)),
+    unknownPending: pendingIds.filter((id) => !defined.includes(id)),
+    unknownCovered: unknownCriteria(defined, covered),
+  };
+}
+
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
     if (name === 'node_modules' || name === 'dist' || name === '.git') continue;
@@ -42,16 +66,26 @@ function walk(dir: string, out: string[] = []): string[] {
 }
 
 function main(): void {
-  const areas = (process.argv[2] ?? '').split(',').filter(Boolean);
   const defined = readdirSync('docs/use-cases')
     .filter((f) => f.endsWith('.md'))
     .flatMap((f) => definedCriteria(readFileSync(join('docs/use-cases', f), 'utf8')));
+  const pending = JSON.parse(readFileSync('scripts/ci/pending-criteria.json', 'utf8')) as Record<string, string>;
   const sources = ['packages', 'scripts', '.github'].flatMap((d) => walk(d)).map((p) => readFileSync(p, 'utf8'));
-  const missing = missingCriteria(defined, coveredCriteria(sources), areas);
-  const unknown = unknownCriteria(defined, coveredCriteria(sources));
-  if (missing.length > 0) console.error(`Criteria without a test: ${missing.join(', ')}`);
-  if (unknown.length > 0) console.error(`Tests or steps naming unknown criteria: ${unknown.join(', ')}`);
-  if (missing.length > 0 || unknown.length > 0) process.exit(1);
+  const report = checkCriteria(defined, coveredCriteria(sources), pending);
+  const problems: [string, string[]][] = [
+    ['Criteria without a test and not pending', report.missing],
+    ['Pending criteria that already have a test (remove them from pending-criteria.json)', report.pendingButCovered],
+    ['Pending entries naming a criterion that does not exist', report.unknownPending],
+    ['Tests or steps naming a criterion that does not exist', report.unknownCovered],
+  ];
+  let failed = false;
+  for (const [label, ids] of problems) {
+    if (ids.length > 0) {
+      console.error(`${label}: ${ids.join(', ')}`);
+      failed = true;
+    }
+  }
+  if (failed) process.exit(1);
 }
 
 if (process.argv[1]?.endsWith('check-criteria.ts')) main();

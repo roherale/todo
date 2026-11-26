@@ -15,7 +15,8 @@
 | UC-DEPLOY-05 | The migration check fails when a new migration file contains `DROP`, `RENAME`, or `ALTER … TYPE` (case-insensitive, ignoring SQL comments), unless the PR has the `migration-contract-approved` label. Migrations that only add things pass with no label. |
 | UC-DEPLOY-06 | Images are tagged with the full commit SHA, and the pipeline never pushes or deploys a `latest` tag. The image carries the OCI labels `org.opencontainers.image.source` and `org.opencontainers.image.revision`. |
 | UC-DEPLOY-07 | Trivy fails the build on any fixable `CRITICAL` or `HIGH` vulnerability. |
-| UC-DEPLOY-08 | The runtime image runs as uid `65532`, has no `/bin/sh`, and contains no `devDependencies` or `.ts` source files. |
+| UC-DEPLOY-08 | The runtime image runs as uid `65532`, has no `/bin/sh`, and contains no `devDependencies` and no project TypeScript source (nothing from `packages/*/src`). `.ts` files that ship inside third-party packages are allowed. |
 | UC-DEPLOY-09 | Every `FROM` line is pinned by `@sha256:` digest. |
 | UC-DEPLOY-10 | `pnpm install` fails on any Node major version other than 26 (`engine-strict`), both locally and in CI. |
 | UC-DEPLOY-11 | The Artifact Registry cleanup policy keeps the 10 most recent images. |
+| UC-DEPLOY-12 | CI fails if any criterion ID defined in `docs/use-cases/` has no test or workflow step whose name starts with that ID, unless it's listed in the pending-criteria file with the milestone that will cover it. It also fails if a test, workflow step or pending entry names a criterion ID that doesn't exist, or if a pending criterion already has a test. |
