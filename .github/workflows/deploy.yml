@@ -86,8 +86,9 @@ jobs:
         run: |
           gcloud run deploy "$SERVICE" --image "$IMAGE" --region "$REGION" \
             --no-traffic --tag candidate \
-            --set-secrets "DATABASE_URL=${{ vars.SECRET_DATABASE_URL }}:latest" \
-            --set-env-vars NODE_ENV=production
+            --service-account "${{ vars.GCP_RUNTIME_SA }}" \
+            --set-secrets "DATABASE_URL=${{ vars.SECRET_DATABASE_URL }}:latest,WORKOS_API_KEY=${{ vars.SECRET_WORKOS_API_KEY }}:latest,SESSION_ENCRYPTION_KEY=${{ vars.SECRET_SESSION_ENCRYPTION_KEY }}:latest,ALLOWED_SIGNUP_EMAILS=${{ vars.SECRET_ALLOWED_SIGNUP_EMAILS }}:latest" \
+            --set-env-vars "^@^NODE_ENV=production@APP_ORIGIN=${{ vars.APP_ORIGIN }}@WORKOS_CLIENT_ID=${{ vars.WORKOS_CLIENT_ID }}@CLI_CLIENT_ID=${{ vars.CLI_CLIENT_ID }}@WORKOS_ISSUER=${{ vars.WORKOS_ISSUER }}@WORKOS_AUDIENCE=${{ vars.WORKOS_AUDIENCE }}@WORKOS_JWKS_URL=${{ vars.WORKOS_JWKS_URL }}@SESSION_KEY_VERSION=${{ vars.SESSION_KEY_VERSION }}"
           rev=$(gcloud run services describe "$SERVICE" --region "$REGION" \
             --format='value(status.latestCreatedRevisionName)')
           url=$(gcloud run services describe "$SERVICE" --region "$REGION" \
