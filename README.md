@@ -2,7 +2,7 @@
 
 A personal task list you can use from a web app, a command line tool, or an AI chat assistant. Each user's tasks are private to them.
 
-> Status: in design. No code yet.
+> Status: milestone 1 (a deployable skeleton with a health check).
 
 ## Features
 
@@ -13,7 +13,15 @@ A personal task list you can use from a web app, a command line tool, or an AI c
 
 ## Run it locally
 
-Instructions will be added with the first milestone.
+```sh
+nvm use                 # Node 26
+npm i -g pnpm@10.34.9
+pnpm install
+cp .env.example .env    # then edit
+docker run -d --rm --name todo-test-pg -e POSTGRES_PASSWORD=postgres -p 5433:5432 postgres:17
+pnpm test               # needs the database above (override with TEST_DATABASE_URL)
+pnpm lint && pnpm typecheck
+```
 
 ## Built with
 

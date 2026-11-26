@@ -1,0 +1,113 @@
+name: deploy
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  # All infrastructure identifiers come from repository variables; nothing is committed.
+  REGION: ${{ vars.GCP_REGION }}
+  SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
+  IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.AR_REPOSITORY }}/app:${{ github.sha }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: npm i -g pnpm@10.34.9 && pnpm install --frozen-lockfile
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+
+      - name: UC-DEPLOY-06 image is tagged with the full commit SHA, never latest
+        run: |
+          case "$IMAGE" in *:latest) echo "latest tag refused"; exit 1;; esac
+          [ "${IMAGE##*:}" = "${{ github.sha }}" ]
+      - name: Build image
+        run: >-
+          docker build -t "$IMAGE"
+          --build-arg SOURCE_REPO=${{ github.server_url }}/${{ github.repository }}
+          --build-arg REVISION=${{ github.sha }} .
+      - name: UC-DEPLOY-08 runtime image is non-root, shell-less and source-free
+        run: scripts/ci/check-image.sh "$IMAGE"
+      - name: UC-DEPLOY-07 Trivy fails on fixable critical or high vulnerabilities
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.IMAGE }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+      - name: UC-DEPLOY-06 image carries the OCI source and revision labels
+        run: |
+          docker image inspect "$IMAGE" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' | grep -qx "${{ github.sha }}"
+          docker image inspect "$IMAGE" --format '{{index .Config.Labels "org.opencontainers.image.source"}}' | grep -q .
+      - name: Push image
+        run: docker push "$IMAGE"
+      - name: UC-DEPLOY-11 registry keeps the 10 most recent images
+        run: |
+          gcloud artifacts repositories describe "${{ vars.AR_REPOSITORY }}" --location "$REGION" --format=json \
+            | jq -e '[.cleanupPolicies[]? | select(.mostRecentVersions.keepCount == 10)] | length > 0'
+
+      # Migrations run here once the first migration exists (milestone 2).
+      - name: Run migrations
+        if: ${{ hashFiles('packages/api/drizzle/*.sql') != '' }}
+        env:
+          DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+        run: pnpm --filter @todo/api exec drizzle-kit migrate
+
+      - name: Record the live revision
+        id: before
+        run: |
+          live=$(gcloud run services describe "$SERVICE" --region "$REGION" \
+            --format='value(status.traffic[0].revisionName)' 2>/dev/null || true)
+          echo "live=$live" >> "$GITHUB_OUTPUT"
+      - name: Deploy candidate with no traffic
+        id: deploy
+        run: |
+          gcloud run deploy "$SERVICE" --image "$IMAGE" --region "$REGION" \
+            --no-traffic --tag candidate \
+            --set-secrets "DATABASE_URL=${{ vars.SECRET_DATABASE_URL }}:latest" \
+            --set-env-vars NODE_ENV=production
+          rev=$(gcloud run services describe "$SERVICE" --region "$REGION" \
+            --format='value(status.latestCreatedRevisionName)')
+          url=$(gcloud run services describe "$SERVICE" --region "$REGION" \
+            --format='json' | jq -r '.status.traffic[] | select(.tag=="candidate") | .url')
+          echo "revision=$rev" >> "$GITHUB_OUTPUT"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+      - name: UC-DEPLOY-01 candidate has no traffic and the previous revision keeps 100%
+        if: ${{ steps.before.outputs.live != '' }}
+        run: |
+          gcloud run services describe "$SERVICE" --region "$REGION" --format=json | jq -e \
+            --arg live "${{ steps.before.outputs.live }}" --arg cand "${{ steps.deploy.outputs.revision }}" '
+              ([.status.traffic[] | select(.revisionName==$live) | .percent] | add) == 100
+              and ([.status.traffic[] | select(.revisionName==$cand) | .percent // 0] | add // 0) == 0'
+      - name: UC-DEPLOY-03 smoke tests against the candidate
+        run: pnpm tsx scripts/ci/smoke.ts "${{ steps.deploy.outputs.url }}" healthz
+      - name: Move all traffic to the candidate
+        run: |
+          gcloud run services update-traffic "$SERVICE" --region "$REGION" \
+            --to-revisions "${{ steps.deploy.outputs.revision }}=100"
+          gcloud run services update-traffic "$SERVICE" --region "$REGION" --remove-tags candidate
+      - name: UC-DEPLOY-02 on failure keep traffic on the previous revision and remove the candidate tag
+        if: ${{ failure() && steps.deploy.outcome == 'success' }}
+        run: |
+          gcloud run services update-traffic "$SERVICE" --region "$REGION" --remove-tags candidate
+          if [ -n "${{ steps.before.outputs.live }}" ]; then
+            gcloud run services update-traffic "$SERVICE" --region "$REGION" \
+              --to-revisions "${{ steps.before.outputs.live }}=100"
+          fi
