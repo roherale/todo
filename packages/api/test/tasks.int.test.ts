@@ -79,6 +79,44 @@ describe('create', () => {
   });
 });
 
+describe('overdue filter with status', () => {
+  it('UC-TASK-16: with ?status= also given, the status filter alone decides, so completed tasks can be listed', async () => {
+    const owner = newOwner();
+    const done = await createTask(owner, { title: 'done', dueAt: '2020-01-01T00:00:00Z', status: 'completed' });
+    await createTask(owner, { title: 'open', dueAt: '2020-01-01T00:00:00Z' });
+    await createTask(owner, { title: 'done later', dueAt: '2999-01-01T00:00:00Z', status: 'completed' });
+    const res = await request(ctx.app)
+      .get('/api/v1/tasks?status=completed&dueBefore=2021-01-01T00:00:00Z')
+      .set(as(owner));
+    expect(res.body.items.map((t: Task) => t.id)).toEqual([done.id]);
+  });
+
+  it('UC-TASK-16: ?status=queued&dueBefore=X returns only queued tasks due before X', async () => {
+    const owner = newOwner();
+    const queued = await createTask(owner, { title: 'q', dueAt: '2020-01-01T00:00:00Z', status: 'queued' });
+    await createTask(owner, { title: 'n', dueAt: '2020-01-01T00:00:00Z' });
+    const res = await request(ctx.app).get('/api/v1/tasks?status=queued&dueBefore=2021-01-01T00:00:00Z').set(as(owner));
+    expect(res.body.items.map((t: Task) => t.id)).toEqual([queued.id]);
+  });
+});
+
+describe('all-day date source', () => {
+  it('UC-TASK-18: D is the date written in the dueAt string, whatever its offset', async () => {
+    const owner = newOwner();
+    const tz = { 'x-test-timezone': 'Asia/Tokyo' };
+    const task = await createTask(owner, { title: 'x', dueAt: '2026-11-28T23:30:00-06:00', dueAllDay: true }, tz);
+    expect(task.dueAt).toBe('2026-11-28T14:59:59.000Z');
+  });
+
+  it('UC-TASK-18: switching a timed task to all-day without a new dueAt uses its local date in the profile timezone', async () => {
+    const owner = newOwner();
+    const tz = { 'x-test-timezone': 'Asia/Tokyo' };
+    const task = await createTask(owner, { title: 'x', dueAt: '2026-11-28T20:00:00Z' }, tz);
+    const res = await patch(owner, task.id, { dueAllDay: true }, tz);
+    expect(res.body).toMatchObject({ dueAt: '2026-11-29T14:59:59.000Z', dueAllDay: true });
+  });
+});
+
 describe('create edge cases', () => {
   it('UC-TASK-17: creating a task already completed sets completedAt, otherwise it stays empty', async () => {
     const owner = newOwner();

@@ -20,6 +20,7 @@
 | UC-TASK-07 | `GET /api/v1/tasks/:ref` returns the task, where `:ref` is either the UUID or the number (`12`). An unknown ref returns `404`. |
 | UC-TASK-08 | `PATCH /api/v1/tasks/:ref` updates any combination of `title`, `notes`, `status`, `dueAt` and `dueAllDay` in one request, and changes `updatedAt`. Setting `status` to `completed` may come with changes to any other field in the same request. |
 | UC-TASK-17 | When `status` changes to `completed`, the server sets `completedAt` to the current time. When it changes from `completed` to any other status, `completedAt` is cleared. `completedAt` can't be set by clients (`400`). Apart from `completedAt` and `updatedAt`, the server never changes a field the request didn't include. |
+| UC-TASK-18 | With `dueAllDay: true`, the date D in UC-TASK-14 is the calendar date written in the `dueAt` string. When a task that has a timed `dueAt` is switched to `dueAllDay: true` without a new `dueAt`, D is the local date of its current `dueAt` in the profile timezone. |
 | UC-TASK-09 | `status` can change from any value in `new`, `queued`, `in_progress`, `paused`, `completed` to any other. All 20 transitions are tested. An unknown status returns `400`. |
 
 ## List
@@ -37,4 +38,4 @@
 | UC-TASK-13 | `dueAt` must be ISO-8601 with an offset or `Z`. A time with no timezone, like `2026-11-28T15:00:00`, returns `400`. |
 | UC-TASK-14 | With `dueAllDay: true` and a `dueAt` on local date D, the stored `dueAt` is D at 23:59:59 in the user's profile timezone, and responses return `dueAllDay: true`. |
 | UC-TASK-15 | `dueAt: null` clears the due date and sets `dueAllDay` to `false`. |
-| UC-TASK-16 | A task counts as overdue when `dueAt < now` and `status != completed`. The `?dueBefore=` filter uses that comparison. |
+| UC-TASK-16 | A task counts as overdue when `dueAt < now` and `status != completed`. `?dueBefore=X` returns tasks with `dueAt < X`, excluding completed tasks **unless `?status=` is also given**, in which case the status filter alone decides. For example, `?status=completed&dueBefore=X` lists completed tasks that were due before X. |

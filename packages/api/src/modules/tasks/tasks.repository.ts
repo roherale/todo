@@ -126,7 +126,9 @@ export function createTasksRepository(db: NodePgDatabase) {
             eq(tasks.ownerId, ownerId),
             f.trashed ? isNotNull(tasks.deletedAt) : isNull(tasks.deletedAt),
             f.status ? eq(tasks.status, f.status) : undefined,
-            f.dueBefore ? and(lt(tasks.dueAt, f.dueBefore), ne(tasks.status, 'completed')) : undefined,
+            f.dueBefore
+              ? and(lt(tasks.dueAt, f.dueBefore), f.status ? undefined : ne(tasks.status, 'completed'))
+              : undefined,
             f.after ? lt(tasks.id, f.after) : undefined,
           ),
         )

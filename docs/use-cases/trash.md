@@ -14,3 +14,5 @@
 | UC-TRASH-08 | After a purge, the next task the user creates still gets the next number. The purged number is not reused (UC-TASK-05). |
 | UC-TRASH-09 | `DELETE /api/v1/trash` permanently removes **only** the caller's tasks that are in the trash. Their tasks outside the trash are unchanged. It returns `{ "deleted": <count> }`. |
 | UC-TRASH-10 | Emptying an empty trash succeeds with `deleted: 0`. |
+| UC-TRASH-11 | Trashing a task that's already in the trash returns `204` and changes nothing; `deletedAt` keeps its original value. |
+| UC-TRASH-12 | `GET /api/v1/tasks/:ref` on a task in the trash returns it, with `deletedAt` set. |

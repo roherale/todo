@@ -148,4 +148,24 @@ describe('trash', () => {
     expect((await trash(owner, task.id)).status).toBe(204);
     expect((await get(owner, task.id)).body).toEqual(before);
   });
+
+  it('UC-TRASH-11: trashing an already trashed task returns 204 and keeps the original deletedAt', async () => {
+    const owner = newOwner();
+    const task = await createTask(owner);
+    await trash(owner, task.id);
+    const first = (await get(owner, task.id)).body.deletedAt;
+    await new Promise((r) => setTimeout(r, 5));
+    expect((await trash(owner, task.number)).status).toBe(204);
+    expect((await get(owner, task.id)).body.deletedAt).toBe(first);
+  });
+
+  it('UC-TRASH-12: GET on a trashed task returns it with deletedAt set', async () => {
+    const owner = newOwner();
+    const task = await createTask(owner, { title: 'visible in trash' });
+    await trash(owner, task.id);
+    const res = await get(owner, task.number);
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ id: task.id, title: 'visible in trash' });
+    expect(res.body.deletedAt).not.toBeNull();
+  });
 });
