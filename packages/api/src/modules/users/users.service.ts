@@ -31,6 +31,7 @@ export function createUsersService(repo: UsersRepository, allowedEmails: string)
 
   return {
     findByWorkosId: (workosUserId: string) => repo.findByWorkosId(workosUserId),
+    findById: (id: string) => repo.findById(id),
 
     async signup(identity: Identity, body: SignupBody): Promise<Profile> {
       const email = identity.email?.trim();

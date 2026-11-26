@@ -4,6 +4,8 @@ export interface Claims {
   sub: string;
   email?: string | undefined;
   sid?: string | undefined;
+  clientId?: string | undefined;
+  authTime?: number | undefined;
 }
 
 export interface VerifierOptions {
@@ -43,6 +45,8 @@ export function createTokenVerifier(options: VerifierOptions): (token: string) =
       sub: payload.sub,
       email: typeof payload['email'] === 'string' ? payload['email'] : undefined,
       sid: typeof payload['sid'] === 'string' ? payload['sid'] : undefined,
+      clientId: typeof payload['client_id'] === 'string' ? payload['client_id'] : undefined,
+      authTime: typeof payload['auth_time'] === 'number' ? payload['auth_time'] : undefined,
     };
   };
 }

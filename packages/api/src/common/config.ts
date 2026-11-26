@@ -13,10 +13,18 @@ const ConfigSchema = z
     WORKOS_ISSUER: z.string().url().optional(),
     WORKOS_AUDIENCE: z.string().min(1).optional(),
     WORKOS_JWKS_URL: z.string().url().optional(),
+    /** 32 bytes, base64-encoded. Encrypts the stored refresh tokens. */
+    SESSION_ENCRYPTION_KEY: z
+      .string()
+      .refine((v) => Buffer.from(v, 'base64').length === 32, { message: 'must be 32 bytes, base64-encoded' })
+      .optional(),
+    SESSION_KEY_VERSION: z.coerce.number().int().min(1).default(1),
+    /** The OAuth client id of the CLI; other Bearer clients are treated as MCP clients. */
+    CLI_CLIENT_ID: z.string().min(1).optional(),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;
-    for (const name of ['WORKOS_ISSUER', 'WORKOS_AUDIENCE', 'WORKOS_JWKS_URL'] as const) {
+    for (const name of ['WORKOS_ISSUER', 'WORKOS_AUDIENCE', 'WORKOS_JWKS_URL', 'SESSION_ENCRYPTION_KEY'] as const) {
       if (!env[name]) ctx.addIssue({ code: 'custom', path: [name], message: 'required in production' });
     }
     if (env.ALLOWED_SIGNUP_EMAILS.trim() === '') {

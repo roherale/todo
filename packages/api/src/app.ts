@@ -14,12 +14,14 @@ export interface AppDeps {
   db: NodePgDatabase;
   config: Config;
   testKeys?: JSONWebKeySet | undefined;
+  now?: (() => Date) | undefined;
+  refresh?: ((refreshToken: string) => Promise<string>) | undefined;
   /** Extra routes, mounted before the 404 handler (used by tests for error paths). */
   extend?: (app: Express) => void;
 }
 
 /** Builds the Express app without listening, so tests can drive it directly. */
-export function createApp({ logger, ping, db, config, testKeys, extend }: AppDeps): Express {
+export function createApp({ logger, ping, db, config, testKeys, now, refresh, extend }: AppDeps): Express {
   const app = express();
   app.disable('x-powered-by');
   app.use(requestId);
@@ -50,7 +52,7 @@ export function createApp({ logger, ping, db, config, testKeys, extend }: AppDep
     });
     next();
   });
-  app.use(routes({ ping, logger, db, config, testKeys }));
+  app.use(routes({ ping, logger, db, config, testKeys, now, refresh }));
   extend?.(app);
   app.use(notFoundHandler);
   app.use(createErrorHandler(logger));

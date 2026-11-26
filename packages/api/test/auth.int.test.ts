@@ -71,7 +71,11 @@ describe('token checks', () => {
     const userId = await createUser(ctx.database);
     const production = buildTestApp(
       undefined,
-      testConfig({ NODE_ENV: 'production', WORKOS_JWKS_URL: 'http://127.0.0.1:1/jwks' }),
+      testConfig({
+        NODE_ENV: 'production',
+        WORKOS_JWKS_URL: 'http://127.0.0.1:1/jwks',
+        SESSION_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
+      }),
     );
     try {
       const token = signer.signToken({ sub: workosIdOf(userId), email: emailOf(userId) });

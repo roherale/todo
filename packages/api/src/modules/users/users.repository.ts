@@ -21,6 +21,11 @@ export function createUsersRepository(db: NodePgDatabase) {
       return row;
     },
 
+    async findById(id: string): Promise<UserRow | undefined> {
+      const [row] = await db.select().from(users).where(eq(users.id, id));
+      return row;
+    },
+
     /** Returns undefined when a profile for this identity already exists. */
     async create(data: NewUser): Promise<UserRow | undefined> {
       const [row] = await db

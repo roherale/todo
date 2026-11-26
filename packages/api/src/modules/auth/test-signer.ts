@@ -1,4 +1,4 @@
-import { generateKeyPairSync, sign, type KeyObject } from 'node:crypto';
+import { generateKeyPairSync, randomUUID, sign, type KeyObject } from 'node:crypto';
 import type { JSONWebKeySet } from 'jose';
 
 const b64 = (input: Buffer | string) => Buffer.from(input).toString('base64url');
@@ -12,6 +12,8 @@ export interface TestTokenOverrides {
   sub?: string;
   email?: string | undefined;
   sid?: string;
+  clientId?: string;
+  authTime?: number;
   issuer?: string;
   audience?: string;
   /** Seconds from now; negative means already expired. */
@@ -40,7 +42,10 @@ export function createTestSigner({ issuer, audience }: TestSignerOptions) {
       aud: overrides.audience ?? audience,
       sub: overrides.sub ?? 'test|user',
       ...(overrides.email === undefined && 'email' in overrides ? {} : { email: overrides.email }),
-      ...(overrides.sid ? { sid: overrides.sid } : {}),
+      // Every token is a fresh sign-in unless the test pins a sid.
+      sid: overrides.sid ?? randomUUID(),
+      client_id: overrides.clientId ?? 'test-client',
+      ...(overrides.authTime === undefined ? {} : { auth_time: overrides.authTime }),
       iat: now,
       exp: now + (overrides.expiresIn ?? 3600),
     };

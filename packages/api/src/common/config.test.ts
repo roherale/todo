@@ -28,7 +28,7 @@ describe('loadConfig', () => {
 
   it('UC-OPS-04: in production, the identity provider settings and the sign-up allowlist are required', () => {
     expect(() => loadConfig({ DATABASE_URL: 'postgres://x', NODE_ENV: 'production' })).toThrowError(
-      /WORKOS_ISSUER, WORKOS_AUDIENCE, WORKOS_JWKS_URL, ALLOWED_SIGNUP_EMAILS/,
+      /WORKOS_ISSUER, WORKOS_AUDIENCE, WORKOS_JWKS_URL, SESSION_ENCRYPTION_KEY, ALLOWED_SIGNUP_EMAILS/,
     );
     const config = loadConfig({
       DATABASE_URL: 'postgres://x',
@@ -36,8 +36,23 @@ describe('loadConfig', () => {
       WORKOS_ISSUER: 'https://auth.example.com',
       WORKOS_AUDIENCE: 'client',
       WORKOS_JWKS_URL: 'https://auth.example.com/jwks',
+      SESSION_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString('base64'),
       ALLOWED_SIGNUP_EMAILS: 'a@example.com',
     });
     expect(config.NODE_ENV).toBe('production');
+  });
+
+  it('UC-SESSION-17: startup fails when the session key is the wrong length, in any environment', () => {
+    const short = Buffer.alloc(16).toString('base64');
+    expect(() => loadConfig({ DATABASE_URL: 'postgres://x', SESSION_ENCRYPTION_KEY: short })).toThrowError(
+      /SESSION_ENCRYPTION_KEY/,
+    );
+    expect(() => loadConfig({ DATABASE_URL: 'postgres://x', SESSION_ENCRYPTION_KEY: 'not base64 at all!!' })).toThrowError(
+      /SESSION_ENCRYPTION_KEY/,
+    );
+  });
+
+  it('UC-SESSION-17: startup fails in production when the session key is missing', () => {
+    expect(() => loadConfig({ DATABASE_URL: 'postgres://x', NODE_ENV: 'production' })).toThrowError(/SESSION_ENCRYPTION_KEY/);
   });
 });

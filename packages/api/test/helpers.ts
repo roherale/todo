@@ -7,6 +7,7 @@ import { createDatabase, type Database } from '../src/common/db.js';
 import { createLogger } from '../src/common/logger.js';
 import { uuidv7 } from '../src/common/uuid7.js';
 import { createTestSigner } from '../src/modules/auth/index.js';
+import { encryptForUser, newCookieValue, sessions, sha256 } from '../src/modules/sessions/index.js';
 import { users } from '../src/modules/users/index.js';
 import { TEST_DATABASE_URL } from './urls.js';
 
@@ -44,7 +45,22 @@ export function captureLogs() {
   return { lines, logger: createLogger('debug', stream) };
 }
 
-export function buildTestApp(extend?: (app: Express) => void, config: Config = testConfig()) {
+/** A clock the test controls, so session lifetimes can be tested without waiting. */
+export function createClock(start = new Date()) {
+  let current = start.getTime();
+  return {
+    now: () => new Date(current),
+    advance(ms: number) {
+      current += ms;
+    },
+  };
+}
+
+export function buildTestApp(
+  extend?: (app: Express) => void,
+  config: Config = testConfig(),
+  options: { clock?: ReturnType<typeof createClock>; refresh?: (token: string) => Promise<string> } = {},
+) {
   const database: Database = createDatabase(TEST_DATABASE_URL);
   const logs = captureLogs();
   const app = createApp({
@@ -53,9 +69,39 @@ export function buildTestApp(extend?: (app: Express) => void, config: Config = t
     db: database.db,
     config,
     testKeys: signer.jwks,
+    now: options.clock?.now,
+    refresh: options.refresh,
     extend,
   });
   return { app, database, logs, config };
+}
+
+export const COOKIE_NAME = '__Host-session';
+
+export const WEB_HEADERS = { 'x-requested-with': 'todo-web', origin: 'http://localhost:8080' };
+
+/** Creates a web session row directly and returns the raw cookie value. */
+export async function createWebSession(
+  database: Database,
+  userId: string,
+  options: { now?: Date; refreshToken?: string; key?: Buffer } = {},
+): Promise<string> {
+  const cookie = newCookieValue();
+  const at = options.now ?? new Date();
+  await database.db.insert(sessions).values({
+    id: uuidv7(),
+    userId,
+    clientType: 'web',
+    idHash: sha256(cookie),
+    refreshTokenEnc:
+      options.refreshToken && options.key
+        ? encryptForUser(options.refreshToken, userId, { key: options.key, version: 1 })
+        : null,
+    keyVersion: options.refreshToken ? 1 : null,
+    firstSeenAt: at,
+    lastSeenAt: at,
+  });
+  return cookie;
 }
 
 export const workosIdOf = (userId: string) => `test|${userId}`;
