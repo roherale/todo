@@ -8,6 +8,8 @@ const ConfigSchema = z
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
     /** The app's own origin, used to build the sign-up link. */
     APP_ORIGIN: z.string().url().default('http://localhost:8080'),
+    /** Directory with the built web app; served at / when set. */
+    WEB_DIST_DIR: z.string().min(1).optional(),
     /** Comma-separated emails allowed to sign up. */
     ALLOWED_SIGNUP_EMAILS: z.string().default(''),
     WORKOS_ISSUER: z.string().url().optional(),

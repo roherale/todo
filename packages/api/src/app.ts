@@ -22,6 +22,16 @@ export interface AppDeps {
   extend?: (app: Express) => void;
 }
 
+/** The built web app: static files, plus index.html for client-side routes (never for API paths). */
+function serveWeb(app: Express, dir: string): void {
+  app.use(express.static(dir, { index: false }));
+  app.get(/^\/(?!api\/|auth\/|mcp|healthz|\.well-known\/).*/, (_req, res, next) => {
+    res.sendFile('index.html', { root: dir }, (err) => {
+      if (err) next();
+    });
+  });
+}
+
 /** Builds the Express app without listening, so tests can drive it directly. */
 export function createApp({ logger, ping, db, config, testKeys, now, provider, refresh, extend }: AppDeps): Express {
   const app = express();
@@ -54,8 +64,10 @@ export function createApp({ logger, ping, db, config, testKeys, now, provider, r
     });
     next();
   });
+  const webDir = config.WEB_DIST_DIR;
   app.use(routes({ ping, logger, db, config, testKeys, now, provider, refresh }));
   extend?.(app);
+  if (webDir) serveWeb(app, webDir);
   app.use(notFoundHandler);
   app.use(createErrorHandler(logger));
   return app;

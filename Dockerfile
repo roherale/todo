@@ -14,5 +14,6 @@ LABEL org.opencontainers.image.source=$SOURCE_REPO \
       org.opencontainers.image.revision=$REVISION
 WORKDIR /app
 COPY --from=build --chown=65532:65532 /out /app
-ENV NODE_ENV=production
+ENV NODE_ENV=production \
+    WEB_DIST_DIR=/app/public
 CMD ["dist/main.js"]
