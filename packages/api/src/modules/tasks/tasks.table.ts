@@ -1,5 +1,6 @@
 import { boolean, index, integer, pgEnum, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 import { TASK_STATUSES } from '@todo/shared';
+import { users } from '../users/index.js';
 
 export const taskStatus = pgEnum('task_status', TASK_STATUSES);
 
@@ -7,7 +8,7 @@ export const tasks = pgTable(
   'tasks',
   {
     id: uuid('id').primaryKey(),
-    ownerId: uuid('owner_id').notNull(),
+    ownerId: uuid('owner_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
     number: integer('number').notNull(),
     title: text('title').notNull(),
     notes: text('notes'),
@@ -24,6 +25,6 @@ export const tasks = pgTable(
 
 /** Last number handed out to each owner. Separate from `tasks` so a purge never frees a number. */
 export const taskCounters = pgTable('task_counters', {
-  ownerId: uuid('owner_id').primaryKey(),
+  ownerId: uuid('owner_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
   lastNumber: integer('last_number').notNull(),
 });

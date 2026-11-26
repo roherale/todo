@@ -1,4 +1,3 @@
-import { HttpError } from './common/errors.js';
 import { createApp } from './app.js';
 import { loadConfig } from './common/config.js';
 import { createDatabase } from './common/db.js';
@@ -16,13 +15,7 @@ function main(): void {
 
   const logger = createLogger(config.LOG_LEVEL);
   const database = createDatabase(config.DATABASE_URL);
-  const app = createApp({
-    logger,
-    ping: database.ping,
-    db: database.db,
-    // Real sign-in arrives with the auth milestone; until then the API answers 401 to everyone.
-    authenticate: (_req, _res, next) => next(new HttpError(401, 'Unauthorized')),
-  });
+  const app = createApp({ logger, ping: database.ping, db: database.db, config });
   const server = app.listen(config.PORT, () => logger.info({ port: config.PORT }, 'listening'));
 
   const shutdown = createShutdown(server, () => database.pool.end());

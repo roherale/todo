@@ -15,3 +15,14 @@ export {
   type Task,
   type TaskPage,
 } from './tasks/task.js';
+export {
+  TimezoneSchema,
+  AvatarUrlSchema,
+  SignupBodySchema,
+  UpdateProfileBodySchema,
+  DeleteProfileBodySchema,
+  ProfileSchema,
+  type SignupBody,
+  type UpdateProfileBody,
+  type Profile,
+} from './users/profile.js';

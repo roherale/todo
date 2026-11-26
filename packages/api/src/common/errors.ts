@@ -7,14 +7,22 @@ export class HttpError extends Error {
     readonly status: number,
     readonly title: string,
     readonly detail?: string,
+    readonly options: { type?: string; extra?: Record<string, unknown> } = {},
   ) {
     super(title);
   }
 }
 
-function sendProblem(res: Parameters<RequestHandler>[1], status: number, title: string, detail?: string) {
-  const body: Problem = {
-    type: 'about:blank',
+function sendProblem(
+  res: Parameters<RequestHandler>[1],
+  status: number,
+  title: string,
+  detail?: string,
+  options: { type?: string; extra?: Record<string, unknown> } = {},
+) {
+  const body: Problem & Record<string, unknown> = {
+    ...options.extra,
+    type: options.type ?? 'about:blank',
     title,
     status,
     ...(detail === undefined ? {} : { detail }),
@@ -30,7 +38,7 @@ export const notFoundHandler: RequestHandler = (_req, res) => {
 export function createErrorHandler(logger: Logger): ErrorRequestHandler {
   return (err, _req, res, _next) => {
     if (err instanceof HttpError) {
-      sendProblem(res, err.status, err.title, err.detail);
+      sendProblem(res, err.status, err.title, err.detail, err.options);
       return;
     }
     // Details go to the logs only; the body stays generic.

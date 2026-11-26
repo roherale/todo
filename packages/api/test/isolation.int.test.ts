@@ -1,17 +1,16 @@
-import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Task } from '@todo/shared';
-import { buildTestApp } from './helpers.js';
+import { bearer, buildTestApp, createUser } from './helpers.js';
 
 const ctx = buildTestApp();
 afterAll(async () => {
   await ctx.database.pool.end();
 });
 
-const A = randomUUID();
-const B = randomUUID();
-const as = (owner: string) => ({ 'x-test-owner': owner });
+let A: string;
+let B: string;
+const as = (owner: string) => bearer(owner);
 const app = () => request(ctx.app);
 
 let aFirst: Task;
@@ -24,6 +23,8 @@ async function createTask(owner: string, title: string): Promise<Task> {
 }
 
 beforeAll(async () => {
+  A = await createUser(ctx.database);
+  B = await createUser(ctx.database);
   // A's #1 is created first, so A's other tasks have numbers B does not use.
   aFirst = await createTask(A, 'a-first');
   aLive = await createTask(A, 'a-live');
