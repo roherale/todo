@@ -16,14 +16,19 @@ export function definedCriteria(markdown: string): string[] {
 export function coveredCriteria(sources: string[]): Set<string> {
   const covered = new Set<string>();
   for (const src of sources) {
-    for (const m of src.matchAll(/(?:it|test)\(\s*['"`](UC-[A-Z]+-\d{2})\b/g)) covered.add(m[1] as string);
-    for (const m of src.matchAll(/name:\s*["']?(UC-[A-Z]+-\d{2})\b/g)) covered.add(m[1] as string);
+    for (const m of src.matchAll(/^\s*(?:it|test)\(\s*['"`](UC-[A-Z]+-\d{2})\b/gm)) covered.add(m[1] as string);
+    for (const m of src.matchAll(/^\s*(?:-\s*)?name:\s*["']?(UC-[A-Z]+-\d{2})\b/gm)) covered.add(m[1] as string);
   }
   return covered;
 }
 
 export function missingCriteria(defined: string[], covered: Set<string>, areas: string[]): string[] {
   return defined.filter((id) => areas.includes(id.split('-')[1] as string) && !covered.has(id));
+}
+
+/** IDs named by tests or workflow steps that no use-case file defines. */
+export function unknownCriteria(defined: string[], covered: Set<string>): string[] {
+  return [...covered].filter((id) => !defined.includes(id));
 }
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -43,10 +48,10 @@ function main(): void {
     .flatMap((f) => definedCriteria(readFileSync(join('docs/use-cases', f), 'utf8')));
   const sources = ['packages', 'scripts', '.github'].flatMap((d) => walk(d)).map((p) => readFileSync(p, 'utf8'));
   const missing = missingCriteria(defined, coveredCriteria(sources), areas);
-  if (missing.length > 0) {
-    console.error(`Criteria without a test: ${missing.join(', ')}`);
-    process.exit(1);
-  }
+  const unknown = unknownCriteria(defined, coveredCriteria(sources));
+  if (missing.length > 0) console.error(`Criteria without a test: ${missing.join(', ')}`);
+  if (unknown.length > 0) console.error(`Tests or steps naming unknown criteria: ${unknown.join(', ')}`);
+  if (missing.length > 0 || unknown.length > 0) process.exit(1);
 }
 
 if (process.argv[1]?.endsWith('check-criteria.ts')) main();

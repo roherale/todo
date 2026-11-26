@@ -41,7 +41,7 @@ jobs:
       - run: pnpm typecheck
       - name: Tests and coverage gates
         run: pnpm test:coverage
-      - name: Every criterion has a test
+      - name: UC-DEPLOY-12 every criterion has a test and every named criterion exists
         # Areas widen as milestones add tests; the target is every area.
         run: pnpm tsx scripts/ci/check-criteria.ts OPS,DEPLOY
       - name: UC-DEPLOY-09 every FROM line is pinned by digest
