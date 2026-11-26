@@ -36,7 +36,12 @@ export function routes({ ping, logger, db, config, testKeys, now, provider, refr
     }
   });
 
-  const users = createUsersModule({ db, allowedSignupEmails: config.ALLOWED_SIGNUP_EMAILS });
+  const tasks = createTasksModule({ db });
+  const users = createUsersModule({
+    db,
+    allowedSignupEmails: config.ALLOWED_SIGNUP_EMAILS,
+    hooks: { timezoneChanged: (id, from, to) => tasks.service.keepAllDayDates(id, from, to) },
+  });
   const clock = now ?? (() => new Date());
   // Outside production a missing key gives each process its own, so sessions end on restart.
   const sessionKey = {
@@ -73,7 +78,6 @@ export function routes({ ping, logger, db, config, testKeys, now, provider, refr
     now: clock,
     testKeys,
   });
-  const tasks = createTasksModule({ db });
 
   if (auth.router) router.use('/auth', auth.router);
 
@@ -81,6 +85,9 @@ export function routes({ ping, logger, db, config, testKeys, now, provider, refr
   v1.use(auth.authenticate);
   v1.use(auth.finishPendingSignup, users.signupRouter); // a verified token is enough to sign up
   v1.use(auth.requireUser); // everything below needs a profile
+  // Editing or deleting the account is for the web app only (UC-PROFILE-12).
+  v1.patch('/profile', auth.requireWebSession);
+  v1.delete('/profile', auth.requireWebSession);
   v1.use(users.profileRouter);
   v1.use(['/session', '/sessions'], auth.requireWebSession);
   v1.use(sessions.router);

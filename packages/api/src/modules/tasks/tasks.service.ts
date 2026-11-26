@@ -126,6 +126,14 @@ export function createTasksService(repo: TasksRepository, now: () => Date = () =
       if (!(await repo.purge(owner.id, current.id))) throw new HttpError(404, 'Not Found');
     },
 
+    /** After a timezone change, every all-day task keeps its calendar date (UC-PROFILE-07). */
+    async keepAllDayDates(ownerId: string, oldTimezone: string, newTimezone: string): Promise<void> {
+      for (const task of await repo.allDayDue(ownerId)) {
+        const date = localDate(task.dueAt, oldTimezone);
+        await repo.setDueAt(ownerId, task.id, endOfLocalDay(date, newTimezone));
+      }
+    },
+
     async emptyTrash(owner: Owner): Promise<{ deleted: number }> {
       return { deleted: await repo.emptyTrash(owner.id) };
     },

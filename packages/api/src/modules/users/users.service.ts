@@ -1,4 +1,4 @@
-import type { Profile, SignupBody } from '@todo/shared';
+import type { Profile, SignupBody, UpdateProfileBody } from '@todo/shared';
 import { HttpError } from '../../common/errors.js';
 import type { UserRow, UsersRepository } from './users.repository.js';
 
@@ -21,7 +21,12 @@ export function toProfile(row: UserRow): Profile {
   };
 }
 
-export function createUsersService(repo: UsersRepository, allowedEmails: string) {
+export interface UsersHooks {
+  /** Called after the timezone changed, so other modules can keep their data consistent. */
+  timezoneChanged?: (userId: string, oldTimezone: string, newTimezone: string) => Promise<void>;
+}
+
+export function createUsersService(repo: UsersRepository, allowedEmails: string, hooks: UsersHooks = {}) {
   const allowed = new Set(
     allowedEmails
       .split(',')
@@ -32,6 +37,23 @@ export function createUsersService(repo: UsersRepository, allowedEmails: string)
   return {
     findByWorkosId: (workosUserId: string) => repo.findByWorkosId(workosUserId),
     findById: (id: string) => repo.findById(id),
+
+    async update(user: UserRow, body: UpdateProfileBody): Promise<Profile> {
+      const updated = await repo.update(user.id, body);
+      if (!updated) throw new HttpError(404, 'Not Found');
+      if (body.timezone !== undefined && body.timezone !== user.timezone) {
+        await hooks.timezoneChanged?.(user.id, user.timezone, body.timezone);
+      }
+      return toProfile(updated);
+    },
+
+    /** Permanently removes the account after the caller typed their own email. */
+    async remove(user: UserRow, confirmEmail: string): Promise<void> {
+      if (confirmEmail.trim().toLowerCase() !== user.email.toLowerCase()) {
+        throw new HttpError(400, 'Bad Request', 'confirmEmail: does not match your email');
+      }
+      await repo.delete(user.id);
+    },
 
     async signup(identity: Identity, body: SignupBody): Promise<Profile> {
       const email = identity.email?.trim();

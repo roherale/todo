@@ -26,6 +26,23 @@ export function createUsersRepository(db: NodePgDatabase) {
       return row;
     },
 
+    async update(
+      id: string,
+      changes: Partial<Pick<UserRow, 'displayName' | 'avatarUrl' | 'timezone' | 'pageSize'>>,
+    ): Promise<UserRow | undefined> {
+      const [row] = await db
+        .update(users)
+        .set({ ...changes, updatedAt: new Date() })
+        .where(eq(users.id, id))
+        .returning();
+      return row;
+    },
+
+    /** Removes the user; their tasks and sessions go with them (cascade). */
+    async delete(id: string): Promise<void> {
+      await db.delete(users).where(eq(users.id, id));
+    },
+
     /** Returns undefined when a profile for this identity already exists. */
     async create(data: NewUser): Promise<UserRow | undefined> {
       const [row] = await db

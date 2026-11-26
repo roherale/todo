@@ -12,5 +12,7 @@ export function createSignupRouter(c: UsersController): Router {
 export function createProfileRouter(c: UsersController): Router {
   const router = Router();
   router.get('/profile', c.get);
+  router.patch('/profile', express.json(), c.patch);
+  router.delete('/profile', express.json(), c.remove);
   return router;
 }

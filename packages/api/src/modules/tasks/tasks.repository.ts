@@ -116,6 +116,22 @@ export function createTasksRepository(db: NodePgDatabase) {
       return rows.length;
     },
 
+    /** Every all-day task of one owner, trashed or not, with its stored due instant. */
+    async allDayDue(ownerId: string): Promise<{ id: string; dueAt: Date }[]> {
+      const rows = await db
+        .select({ id: tasks.id, dueAt: tasks.dueAt })
+        .from(tasks)
+        .where(and(eq(tasks.ownerId, ownerId), eq(tasks.dueAllDay, true), isNotNull(tasks.dueAt)));
+      return rows.flatMap((r) => (r.dueAt ? [{ id: r.id, dueAt: r.dueAt }] : []));
+    },
+
+    async setDueAt(ownerId: string, id: string, dueAt: Date): Promise<void> {
+      await db
+        .update(tasks)
+        .set({ dueAt, updatedAt: new Date() })
+        .where(and(eq(tasks.ownerId, ownerId), eq(tasks.id, id)));
+    },
+
     /** Returns up to `limit + 1` rows so the caller can tell whether another page exists. */
     async list(ownerId: string, f: ListFilter): Promise<Task[]> {
       const rows = await db
