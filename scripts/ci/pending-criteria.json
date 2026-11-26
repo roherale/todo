@@ -1,6 +1,4 @@
 {
-  "UC-AUTH-06": "M4",
-  "UC-AUTH-07": "M4",
   "UC-CLI-01": "M6",
   "UC-CLI-02": "M6",
   "UC-CLI-03": "M6",
@@ -12,17 +10,5 @@
   "UC-CLI-09": "M6",
   "UC-CLI-10": "M6",
   "UC-CLI-11": "M6",
-  "UC-CLI-12": "M6",
-  "UC-ISO-06": "M4",
-  "UC-MCP-01": "M4",
-  "UC-MCP-02": "M4",
-  "UC-MCP-03": "M4",
-  "UC-MCP-04": "M4",
-  "UC-MCP-05": "M4",
-  "UC-MCP-06": "M4",
-  "UC-MCP-07": "M4",
-  "UC-MCP-08": "M4",
-  "UC-MCP-09": "M4",
-  "UC-MCP-10": "M4",
-  "UC-SESSION-05": "M4"
+  "UC-CLI-12": "M6"
 }

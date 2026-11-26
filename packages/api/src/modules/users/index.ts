@@ -1,4 +1,5 @@
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { createUsersMcpTools } from './users.mcp.js';
 import { createUsersController } from './users.controller.js';
 import { createUsersRepository } from './users.repository.js';
 import { createProfileRouter, createSignupRouter } from './users.routes.js';
@@ -21,5 +22,5 @@ export function createUsersModule({
     db.transaction((tx) => work(tx)),
   );
   const controller = createUsersController(service);
-  return { signupRouter: createSignupRouter(controller), profileRouter: createProfileRouter(controller), service };
+  return { mcpTools: createUsersMcpTools(), signupRouter: createSignupRouter(controller), profileRouter: createProfileRouter(controller), service };
 }

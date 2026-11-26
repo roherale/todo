@@ -1,10 +1,12 @@
 import { randomBytes } from 'node:crypto';
 import { Router } from 'express';
+import type { McpUser } from './common/mcp-tool.js';
 import type { JSONWebKeySet } from 'jose';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { Logger } from 'pino';
 import type { Config } from './common/config.js';
 import { createAuthModule, type IdentityProvider } from './modules/auth/index.js';
+import { createMcpModule } from './modules/mcp/index.js';
 import { createSessionsModule, decryptForUser, encryptForUser, parseSessionKey } from './modules/sessions/index.js';
 import { createTasksModule } from './modules/tasks/index.js';
 import { createUsersModule } from './modules/users/index.js';
@@ -93,6 +95,19 @@ export function routes({ ping, logger, db, config, testKeys, now, provider, refr
   v1.use(sessions.router);
   v1.use(tasks.router);
   router.use('/api/v1', v1);
+
+  // OAuth discovery for MCP clients (UC-AUTH-07): public, and names the authorization server.
+  router.get('/.well-known/oauth-protected-resource', (_req, res) => {
+    res.json({ resource: `${config.APP_ORIGIN}/mcp`, authorization_servers: config.WORKOS_ISSUER ? [config.WORKOS_ISSUER] : [] });
+  });
+
+  const mcp = createMcpModule({
+    tools: [...tasks.mcpTools, ...users.mcpTools],
+    logger,
+    signupUrl: `${config.APP_ORIGIN}/signup`,
+    callerOf: (res) => res.locals['user'] as McpUser | undefined,
+  });
+  router.use('/mcp', auth.authenticateMcp, mcp.router);
 
   return router;
 }

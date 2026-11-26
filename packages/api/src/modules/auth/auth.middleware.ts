@@ -49,7 +49,12 @@ export function createAuthMiddleware<U extends AuthUser>({
   pending: PendingSignup;
   signupUrl: string;
   appOrigin: string;
-}): { authenticate: RequestHandler; requireUser: RequestHandler; requireWebSession: RequestHandler } {
+}): {
+  authenticate: RequestHandler;
+  authenticateMcp: RequestHandler;
+  requireUser: RequestHandler;
+  requireWebSession: RequestHandler;
+} {
   async function viaBearer(req: Request, res: Parameters<RequestHandler>[1], token: string) {
     let claims: Claims;
     try {
@@ -102,6 +107,18 @@ export function createAuthMiddleware<U extends AuthUser>({
     run.then(() => next(), next);
   };
 
+  /** `/mcp` takes Bearer tokens only, and a refusal tells the client where to start a sign-in (UC-AUTH-06). */
+  const challenge = `Bearer resource_metadata="${appOrigin}/.well-known/oauth-protected-resource"`;
+  const authenticateMcp: RequestHandler = (req, res, next) => {
+    const bearer = /^Bearer\s+(\S+)$/i.exec(req.header('authorization') ?? '');
+    const refuse = (err: unknown) => {
+      if (err instanceof HttpError && err.status === 401) res.setHeader('WWW-Authenticate', challenge);
+      next(err);
+    };
+    if (!bearer?.[1]) return refuse(new HttpError(401, 'Unauthorized'));
+    viaBearer(req, res, bearer[1]).then(() => next(), refuse);
+  };
+
   const requireUser: RequestHandler = (req, res, next) => {
     const user = (req as AuthedRequest).user;
     if (!user) {
@@ -124,5 +141,5 @@ export function createAuthMiddleware<U extends AuthUser>({
     next();
   };
 
-  return { authenticate, requireUser, requireWebSession };
+  return { authenticate, authenticateMcp, requireUser, requireWebSession };
 }

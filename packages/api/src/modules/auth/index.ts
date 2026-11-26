@@ -18,6 +18,7 @@ export type { Sealer } from './pending-signup.js';
 
 export interface AuthModule {
   authenticate: RequestHandler;
+  authenticateMcp: RequestHandler;
   requireUser: RequestHandler;
   requireWebSession: RequestHandler;
   finishPendingSignup: RequestHandler;
