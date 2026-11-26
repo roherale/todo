@@ -17,6 +17,7 @@ export const sessions = pgTable(
     idHash: text('id_hash').notNull().unique(),
     refreshTokenEnc: text('refresh_token_enc'),
     keyVersion: integer('key_version'),
+    refreshedAt: timestamp('refreshed_at', { withTimezone: true }),
     firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).notNull(),
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull(),
     endedAt: timestamp('ended_at', { withTimezone: true }),

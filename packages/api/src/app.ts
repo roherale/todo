@@ -4,6 +4,7 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import helmet from 'helmet';
 import type { Logger } from 'pino';
 import type { Config } from './common/config.js';
+import type { IdentityProvider } from './modules/auth/index.js';
 import { createErrorHandler, notFoundHandler } from './common/errors.js';
 import { requestId } from './common/request-id.js';
 import { routes } from './routes.js';
@@ -15,13 +16,14 @@ export interface AppDeps {
   config: Config;
   testKeys?: JSONWebKeySet | undefined;
   now?: (() => Date) | undefined;
+  provider?: IdentityProvider | undefined;
   refresh?: ((refreshToken: string) => Promise<string>) | undefined;
   /** Extra routes, mounted before the 404 handler (used by tests for error paths). */
   extend?: (app: Express) => void;
 }
 
 /** Builds the Express app without listening, so tests can drive it directly. */
-export function createApp({ logger, ping, db, config, testKeys, now, refresh, extend }: AppDeps): Express {
+export function createApp({ logger, ping, db, config, testKeys, now, provider, refresh, extend }: AppDeps): Express {
   const app = express();
   app.disable('x-powered-by');
   app.use(requestId);
@@ -52,7 +54,7 @@ export function createApp({ logger, ping, db, config, testKeys, now, refresh, ex
     });
     next();
   });
-  app.use(routes({ ping, logger, db, config, testKeys, now, refresh }));
+  app.use(routes({ ping, logger, db, config, testKeys, now, provider, refresh }));
   extend?.(app);
   app.use(notFoundHandler);
   app.use(createErrorHandler(logger));

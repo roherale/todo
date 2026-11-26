@@ -13,6 +13,9 @@ const ConfigSchema = z
     WORKOS_ISSUER: z.string().url().optional(),
     WORKOS_AUDIENCE: z.string().min(1).optional(),
     WORKOS_JWKS_URL: z.string().url().optional(),
+    WORKOS_API_KEY: z.string().min(1).optional(),
+    /** The web app's own client id. Bearer tokens carrying it are refused (UC-SESSION-24). */
+    WORKOS_CLIENT_ID: z.string().min(1).optional(),
     /** 32 bytes, base64-encoded. Encrypts the stored refresh tokens. */
     SESSION_ENCRYPTION_KEY: z
       .string()
@@ -24,7 +27,7 @@ const ConfigSchema = z
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;
-    for (const name of ['WORKOS_ISSUER', 'WORKOS_AUDIENCE', 'WORKOS_JWKS_URL', 'SESSION_ENCRYPTION_KEY'] as const) {
+    for (const name of ['WORKOS_ISSUER', 'WORKOS_AUDIENCE', 'WORKOS_JWKS_URL', 'WORKOS_API_KEY', 'WORKOS_CLIENT_ID', 'SESSION_ENCRYPTION_KEY'] as const) {
       if (!env[name]) ctx.addIssue({ code: 'custom', path: [name], message: 'required in production' });
     }
     if (env.ALLOWED_SIGNUP_EMAILS.trim() === '') {

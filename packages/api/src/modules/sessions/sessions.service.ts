@@ -17,6 +17,9 @@ export const LIMITS: Record<ClientType, { idle: number; absolute: number }> = {
 /** `lastSeenAt` is written at most once per this interval. */
 export const TOUCH_INTERVAL = MINUTE;
 
+/** A web session's refresh token is used at most once per this interval (UC-SESSION-23). */
+export const REFRESH_INTERVAL = 15 * MINUTE;
+
 export interface SessionContext {
   id: string;
   userId: string;
@@ -36,13 +39,15 @@ export interface SessionsDeps {
   now: () => Date;
   /** Client id that identifies the CLI; any other Bearer client is treated as MCP. */
   cliClientId?: string | undefined;
+  /** The web app's own client id: it never uses Bearer tokens, so such tokens are refused. */
+  webClientId?: string | undefined;
   /** Exchanges a stored refresh token for a rotated one; rejects when the provider refuses it. */
   refresh?: ((refreshToken: string) => Promise<string>) | undefined;
 }
 
 const unauthorized = () => new HttpError(401, 'Unauthorized');
 
-export function createSessionsService({ repo, key, now, cliClientId, refresh }: SessionsDeps) {
+export function createSessionsService({ repo, key, now, cliClientId, webClientId, refresh }: SessionsDeps) {
   /** Why a row can no longer be used, or undefined when it is still valid. */
   function problemWith(row: SessionRow, at: Date): 'ended' | 'idle' | 'expired' | undefined {
     if (row.endedAt) return 'ended';
@@ -59,11 +64,20 @@ export function createSessionsService({ repo, key, now, cliClientId, refresh }: 
     throw unauthorized();
   }
 
-  /** Writes lastSeenAt at most once a minute; web sessions also rotate their refresh token then. */
+  /**
+   * Writes lastSeenAt at most once a minute. A web session also uses its refresh token, at most once
+   * every 15 minutes, and stores the rotated one.
+   */
   async function touchIfDue(row: SessionRow, at: Date): Promise<void> {
-    if (at.getTime() - row.lastSeenAt.getTime() < TOUCH_INTERVAL) return;
+    const touchDue = at.getTime() - row.lastSeenAt.getTime() >= TOUCH_INTERVAL;
+    const refreshDue =
+      row.clientType === 'web' &&
+      row.refreshTokenEnc !== null &&
+      refresh !== undefined &&
+      at.getTime() - (row.refreshedAt ?? row.firstSeenAt).getTime() >= REFRESH_INTERVAL;
+    if (!touchDue && !refreshDue) return;
     let rotated: { enc: string; keyVersion: number } | undefined;
-    if (row.clientType === 'web' && row.refreshTokenEnc && refresh) {
+    if (refreshDue && row.refreshTokenEnc && refresh) {
       try {
         const next = await refresh(decryptForUser(row.refreshTokenEnc, row.userId, key));
         rotated = { enc: encryptForUser(next, row.userId, key), keyVersion: key.version };
@@ -81,10 +95,13 @@ export function createSessionsService({ repo, key, now, cliClientId, refresh }: 
     /** A Bearer request from a signed-up user: finds or starts the session for this sign-in. */
     async authenticateBearer(userId: string, claims: BearerClaims): Promise<SessionContext> {
       if (!claims.sid) throw unauthorized();
+      if (webClientId && claims.clientId === webClientId) throw unauthorized();
       const at = now();
-      // The key includes the client and, when present, auth_time, so a fresh sign-in that
-      // reuses a consent-level sid still gets a new session (UC-SESSION-06).
-      const idHash = sha256(`${claims.clientId ?? ''}:${claims.sid}:${claims.authTime ?? ''}`);
+      // client_id:sid, plus auth_time when the provider sends it, so a fresh sign-in that reuses a
+      // consent-level sid still gets a new session (UC-SESSION-06, UC-SESSION-14).
+      const idHash = sha256(
+        `${claims.clientId ?? ''}:${claims.sid}${claims.authTime === undefined ? '' : `:${claims.authTime}`}`,
+      );
       const existing = await repo.findByIdHash(idHash);
       if (existing) {
         if (existing.userId !== userId) throw unauthorized();
@@ -132,6 +149,22 @@ export function createSessionsService({ repo, key, now, cliClientId, refresh }: 
 
     async endCurrent(session: SessionContext): Promise<void> {
       await repo.end(session.userId, session.id, now());
+    },
+
+    /** Sign-out: ends the web session behind a cookie and returns its refresh token, if any. */
+    async endWeb(cookie: string): Promise<{ refreshToken?: string } | undefined> {
+      const row = await repo.findByIdHash(sha256(cookie));
+      if (!row || row.clientType !== 'web' || row.endedAt) return undefined;
+      let refreshToken: string | undefined;
+      if (row.refreshTokenEnc) {
+        try {
+          refreshToken = decryptForUser(row.refreshTokenEnc, row.userId, key);
+        } catch {
+          refreshToken = undefined;
+        }
+      }
+      await repo.end(row.userId, row.id, now());
+      return refreshToken === undefined ? {} : { refreshToken };
     },
 
     /** Ends all of one user's sessions: web, CLI and MCP. */

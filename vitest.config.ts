@@ -9,7 +9,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['packages/api/src/**', 'packages/shared/src/**'],
-      exclude: ['**/*.test.ts', 'packages/api/src/main.ts'],
+      exclude: ['**/*.test.ts', 'packages/api/src/main.ts', 'packages/api/src/cleanup-sessions.ts'],
       thresholds: { lines: 90, branches: 90 },
     },
   },

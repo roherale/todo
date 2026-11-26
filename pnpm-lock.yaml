@@ -47,6 +47,9 @@ importers:
       '@todo/shared':
         specifier: workspace:*
         version: link:../shared
+      '@workos-inc/node':
+        specifier: ^12.4.0
+        version: 12.4.0
       drizzle-orm:
         specifier: ^0.45.4
         version: 0.45.4(@types/pg@8.23.1)(pg@8.23.1)
@@ -1313,6 +1316,10 @@ packages:
 
   '@vitest/spy@5.1.2':
     resolution: {integrity: sha512-PQl0/3+p9GaY71+MHywN6oyHfLhVDD5kcbm7oNRldA2F0ExMU3S8RQdnpteJ9gFAdK5P6KCgE6LqCpUgy57KzA==}
+
+  '@workos-inc/node@12.4.0':
+    resolution: {integrity: sha512-bFpXWRTc4HR3uRaaB1mZiq5tl7aR4MVaao45b4GxEfgK8aLEjHI01oPStn7AjW7iQt8S6vSO2igFBF/MkPhyRg==}
+    engines: {node: '>=22.11.0'}
 
   accepts@2.0.0:
     resolution: {integrity: sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng==}
@@ -3685,6 +3692,8 @@ snapshots:
       vite: 8.4.0(@types/node@26.6.11)(esbuild@0.28.2)(tsx@4.23.15)
 
   '@vitest/spy@5.1.2': {}
+
+  '@workos-inc/node@12.4.0': {}
 
   accepts@2.0.0:
     dependencies:

@@ -225,7 +225,7 @@ describe('storage', () => {
     expect(row?.clientType).toBe('cli');
     expect(row?.idHash).toMatch(/^[0-9a-f]{64}$/);
     expect(JSON.stringify(row)).not.toContain(sid);
-    expect(row?.idHash).toBe(sha256(`cli-client:${sid}:`));
+    expect(row?.idHash).toBe(sha256(`cli-client:${sid}`));
   });
 
   it('UC-SESSION-15: the sessions table has exactly the approved columns', async () => {
@@ -235,7 +235,7 @@ describe('storage', () => {
     );
     const names = (result.rows as { column_name: string }[]).map((r) => r.column_name).sort();
     expect(names).toEqual(
-      ['client_type', 'ended_at', 'first_seen_at', 'id', 'id_hash', 'key_version', 'last_seen_at', 'refresh_token_enc', 'user_id'].sort(),
+      ['client_type', 'ended_at', 'first_seen_at', 'id', 'id_hash', 'key_version', 'last_seen_at', 'refresh_token_enc', 'refreshed_at', 'user_id'].sort(),
     );
   });
 
@@ -271,7 +271,7 @@ describe('ending sessions', () => {
     const s = fresh(() => Promise.reject(new Error('refresh token revoked')));
     const user = await createUser(s.database);
     const cookie = await createWebSession(s.database, user, { now: s.clock.now(), refreshToken: 'rt-1', key: KEY });
-    s.clock.advance(2 * MIN);
+    s.clock.advance(16 * MIN);
     const res = await request(s.app).get('/api/v1/tasks').set(withCookie(cookie));
     expect(res.status).toBe(401);
     expect((await rows(s, user))[0]?.endedAt).not.toBeNull();
@@ -282,7 +282,7 @@ describe('ending sessions', () => {
     const s = fresh(() => Promise.resolve('rt-rotated'));
     const user = await createUser(s.database);
     const cookie = await createWebSession(s.database, user, { now: s.clock.now(), refreshToken: 'rt-1', key: KEY });
-    s.clock.advance(2 * MIN);
+    s.clock.advance(16 * MIN);
     expect((await request(s.app).get('/api/v1/tasks').set(withCookie(cookie))).status).toBe(200);
     const [row] = await rows(s, user);
     expect(decryptForUser(row!.refreshTokenEnc!, user, { key: KEY, version: 1 })).toBe('rt-rotated');

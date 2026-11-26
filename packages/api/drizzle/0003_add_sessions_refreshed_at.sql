@@ -1,0 +1,1 @@
+ALTER TABLE "sessions" ADD COLUMN "refreshed_at" timestamp with time zone;

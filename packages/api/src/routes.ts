@@ -4,8 +4,8 @@ import type { JSONWebKeySet } from 'jose';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { Logger } from 'pino';
 import type { Config } from './common/config.js';
-import { createAuthModule } from './modules/auth/index.js';
-import { createSessionsModule, parseSessionKey } from './modules/sessions/index.js';
+import { createAuthModule, type IdentityProvider } from './modules/auth/index.js';
+import { createSessionsModule, decryptForUser, encryptForUser, parseSessionKey } from './modules/sessions/index.js';
 import { createTasksModule } from './modules/tasks/index.js';
 import { createUsersModule } from './modules/users/index.js';
 
@@ -17,11 +17,13 @@ export interface RouteDeps {
   /** Test-signer keys; ignored unless `config.NODE_ENV` is `test`. */
   testKeys?: JSONWebKeySet | undefined;
   now?: (() => Date) | undefined;
-  /** Exchanges a stored refresh token for a rotated one; rejects when the provider refuses it. */
+  /** The identity provider for web sign-in. Without one, /auth is not mounted. */
+  provider?: IdentityProvider | undefined;
+  /** Overrides the provider's refresh (tests). */
   refresh?: ((refreshToken: string) => Promise<string>) | undefined;
 }
 
-export function routes({ ping, logger, db, config, testKeys, now, refresh }: RouteDeps): Router {
+export function routes({ ping, logger, db, config, testKeys, now, provider, refresh }: RouteDeps): Router {
   const router = Router();
 
   router.get('/healthz', async (_req, res) => {
@@ -35,16 +37,19 @@ export function routes({ ping, logger, db, config, testKeys, now, refresh }: Rou
   });
 
   const users = createUsersModule({ db, allowedSignupEmails: config.ALLOWED_SIGNUP_EMAILS });
+  const clock = now ?? (() => new Date());
+  // Outside production a missing key gives each process its own, so sessions end on restart.
+  const sessionKey = {
+    key: config.SESSION_ENCRYPTION_KEY ? parseSessionKey(config.SESSION_ENCRYPTION_KEY) : randomBytes(32),
+    version: config.SESSION_KEY_VERSION,
+  };
   const sessions = createSessionsModule({
     db,
-    key: {
-      // Outside production a missing key gives each process its own, so sessions end on restart.
-      key: config.SESSION_ENCRYPTION_KEY ? parseSessionKey(config.SESSION_ENCRYPTION_KEY) : randomBytes(32),
-      version: config.SESSION_KEY_VERSION,
-    },
-    now: now ?? (() => new Date()),
+    key: sessionKey,
+    now: clock,
     cliClientId: config.CLI_CLIENT_ID,
-    refresh,
+    webClientId: config.WORKOS_CLIENT_ID,
+    refresh: refresh ?? (provider ? (token) => provider.refresh(token) : undefined),
   });
   const auth = createAuthModule({
     config,
@@ -54,13 +59,27 @@ export function routes({ ping, logger, db, config, testKeys, now, refresh }: Rou
       bearer: (userId, claims) => sessions.service.authenticateBearer(userId, claims),
       web: (cookie) => sessions.service.authenticateWeb(cookie),
     },
+    webSignIn: provider
+      ? {
+          provider,
+          startWeb: (userId, refreshToken) => sessions.service.startWeb(userId, refreshToken),
+          endWeb: (cookie) => sessions.service.endWeb(cookie),
+        }
+      : undefined,
+    sealer: {
+      seal: (plain) => encryptForUser(plain, 'pending-signup', sessionKey),
+      open: (sealed) => decryptForUser(sealed, 'pending-signup', sessionKey),
+    },
+    now: clock,
     testKeys,
   });
   const tasks = createTasksModule({ db });
 
+  if (auth.router) router.use('/auth', auth.router);
+
   const v1 = Router();
   v1.use(auth.authenticate);
-  v1.use(users.signupRouter); // a verified token is enough to sign up
+  v1.use(auth.finishPendingSignup, users.signupRouter); // a verified token is enough to sign up
   v1.use(auth.requireUser); // everything below needs a profile
   v1.use(users.profileRouter);
   v1.use(['/session', '/sessions'], auth.requireWebSession);

@@ -1,17 +1,21 @@
 version: 2
+
+# One weekly pull request across all three ecosystems.
+multi-ecosystem-groups:
+  weekly-dependency-updates:
+    schedule:
+      interval: weekly
+
 updates:
   - package-ecosystem: npm
     directory: /
-    schedule: { interval: weekly }
-    groups:
-      all: { patterns: ['*'] }
+    patterns: ['*']
+    multi-ecosystem-group: weekly-dependency-updates
   - package-ecosystem: docker
     directory: /
-    schedule: { interval: weekly }
-    groups:
-      all: { patterns: ['*'] }
+    patterns: ['*']
+    multi-ecosystem-group: weekly-dependency-updates
   - package-ecosystem: github-actions
     directory: /
-    schedule: { interval: weekly }
-    groups:
-      all: { patterns: ['*'] }
+    patterns: ['*']
+    multi-ecosystem-group: weekly-dependency-updates

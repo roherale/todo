@@ -6,7 +6,7 @@ import { loadConfig, type Config } from '../src/common/config.js';
 import { createDatabase, type Database } from '../src/common/db.js';
 import { createLogger } from '../src/common/logger.js';
 import { uuidv7 } from '../src/common/uuid7.js';
-import { createTestSigner } from '../src/modules/auth/index.js';
+import { createTestSigner, type IdentityProvider } from '../src/modules/auth/index.js';
 import { encryptForUser, newCookieValue, sessions, sha256 } from '../src/modules/sessions/index.js';
 import { users } from '../src/modules/users/index.js';
 import { TEST_DATABASE_URL } from './urls.js';
@@ -59,7 +59,11 @@ export function createClock(start = new Date()) {
 export function buildTestApp(
   extend?: (app: Express) => void,
   config: Config = testConfig(),
-  options: { clock?: ReturnType<typeof createClock>; refresh?: (token: string) => Promise<string> } = {},
+  options: {
+    clock?: ReturnType<typeof createClock>;
+    refresh?: (token: string) => Promise<string>;
+    provider?: IdentityProvider;
+  } = {},
 ) {
   const database: Database = createDatabase(TEST_DATABASE_URL);
   const logs = captureLogs();
@@ -70,6 +74,7 @@ export function buildTestApp(
     config,
     testKeys: signer.jwks,
     now: options.clock?.now,
+    provider: options.provider,
     refresh: options.refresh,
     extend,
   });

@@ -1,6 +1,7 @@
 import { createApp } from './app.js';
 import { loadConfig } from './common/config.js';
 import { createDatabase } from './common/db.js';
+import { createWorkosProvider } from './modules/auth/index.js';
 import { createLogger } from './common/logger.js';
 import { createShutdown } from './common/shutdown.js';
 
@@ -15,7 +16,16 @@ function main(): void {
 
   const logger = createLogger(config.LOG_LEVEL);
   const database = createDatabase(config.DATABASE_URL);
-  const app = createApp({ logger, ping: database.ping, db: database.db, config });
+  const provider =
+    config.WORKOS_API_KEY && config.WORKOS_CLIENT_ID
+      ? createWorkosProvider({
+          apiKey: config.WORKOS_API_KEY,
+          clientId: config.WORKOS_CLIENT_ID,
+          redirectUri: `${config.APP_ORIGIN}/auth/callback`,
+          returnTo: `${config.APP_ORIGIN}/`,
+        })
+      : undefined;
+  const app = createApp({ logger, ping: database.ping, db: database.db, config, provider });
   const server = app.listen(config.PORT, () => logger.info({ port: config.PORT }, 'listening'));
 
   const shutdown = createShutdown(server, () => database.pool.end());

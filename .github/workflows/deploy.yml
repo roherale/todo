@@ -70,6 +70,11 @@ jobs:
           DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
         run: pnpm --filter @todo/api exec drizzle-kit migrate
 
+      - name: UC-SESSION-22 remove ended and expired sessions
+        env:
+          DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+        run: pnpm -r build && node packages/api/dist/cleanup-sessions.js
+
       - name: Record the live revision
         id: before
         run: |

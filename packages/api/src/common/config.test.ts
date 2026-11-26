@@ -28,7 +28,7 @@ describe('loadConfig', () => {
 
   it('UC-OPS-04: in production, the identity provider settings and the sign-up allowlist are required', () => {
     expect(() => loadConfig({ DATABASE_URL: 'postgres://x', NODE_ENV: 'production' })).toThrowError(
-      /WORKOS_ISSUER, WORKOS_AUDIENCE, WORKOS_JWKS_URL, SESSION_ENCRYPTION_KEY, ALLOWED_SIGNUP_EMAILS/,
+      /WORKOS_ISSUER, WORKOS_AUDIENCE, WORKOS_JWKS_URL, WORKOS_API_KEY, WORKOS_CLIENT_ID, SESSION_ENCRYPTION_KEY, ALLOWED_SIGNUP_EMAILS/,
     );
     const config = loadConfig({
       DATABASE_URL: 'postgres://x',
@@ -36,6 +36,8 @@ describe('loadConfig', () => {
       WORKOS_ISSUER: 'https://auth.example.com',
       WORKOS_AUDIENCE: 'client',
       WORKOS_JWKS_URL: 'https://auth.example.com/jwks',
+      WORKOS_API_KEY: 'sk_test_x',
+      WORKOS_CLIENT_ID: 'client_x',
       SESSION_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString('base64'),
       ALLOWED_SIGNUP_EMAILS: 'a@example.com',
     });

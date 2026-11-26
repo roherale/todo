@@ -33,6 +33,7 @@ export function createSessionsRepository(db: NodePgDatabase) {
           idHash: data.idHash,
           refreshTokenEnc: data.refreshTokenEnc ?? null,
           keyVersion: data.keyVersion ?? null,
+          refreshedAt: data.refreshTokenEnc ? data.now : null,
           firstSeenAt: data.now,
           lastSeenAt: data.now,
         })
@@ -46,7 +47,7 @@ export function createSessionsRepository(db: NodePgDatabase) {
         .update(sessions)
         .set({
           lastSeenAt: now,
-          ...(refresh ? { refreshTokenEnc: refresh.enc, keyVersion: refresh.keyVersion } : {}),
+          ...(refresh ? { refreshTokenEnc: refresh.enc, keyVersion: refresh.keyVersion, refreshedAt: now } : {}),
         })
         .where(and(eq(sessions.userId, userId), eq(sessions.id, id), isNull(sessions.endedAt)));
     },

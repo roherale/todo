@@ -74,6 +74,8 @@ describe('token checks', () => {
       testConfig({
         NODE_ENV: 'production',
         WORKOS_JWKS_URL: 'http://127.0.0.1:1/jwks',
+        WORKOS_API_KEY: 'sk_test_x',
+        WORKOS_CLIENT_ID: 'client_x',
         SESSION_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
       }),
     );

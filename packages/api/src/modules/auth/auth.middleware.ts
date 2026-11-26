@@ -1,6 +1,10 @@
 import type { Request, RequestHandler } from 'express';
 import { HttpError } from '../../common/errors.js';
+import { readCookie } from './cookies.js';
 import type { Claims } from './jwt.js';
+import { PENDING_COOKIE, type PendingSignup } from './pending-signup.js';
+
+export const SESSION_COOKIE = '__Host-session';
 
 export interface AuthUser {
   id: string;
@@ -18,16 +22,15 @@ export interface SessionPort {
   web(cookie: string): Promise<{ id: string; userId: string; clientType: string }>;
 }
 
-export const SESSION_COOKIE = '__Host-session';
-
 const UNSAFE = new Set(['POST', 'PATCH', 'DELETE', 'PUT']);
 
-function readCookie(header: string | undefined, name: string): string | undefined {
-  for (const part of (header ?? '').split(';')) {
-    const [k, ...rest] = part.trim().split('=');
-    if (k === name) return rest.join('=');
+/** CSRF rules for cookie-authenticated writes (UC-AUTH-10). */
+export function csrfCheck(req: Request, appOrigin: string): void {
+  if (!UNSAFE.has(req.method)) return;
+  const origin = req.header('origin');
+  if (!req.header('x-requested-with') || (origin !== undefined && origin !== appOrigin)) {
+    throw new HttpError(403, 'Forbidden', 'Cross-site request rejected');
   }
-  return undefined;
 }
 
 export function createAuthMiddleware<U extends AuthUser>({
@@ -35,6 +38,7 @@ export function createAuthMiddleware<U extends AuthUser>({
   findUser,
   findUserById,
   sessions,
+  pending,
   signupUrl,
   appOrigin,
 }: {
@@ -42,18 +46,10 @@ export function createAuthMiddleware<U extends AuthUser>({
   findUser: (sub: string) => Promise<U | undefined>;
   findUserById: (id: string) => Promise<U | undefined>;
   sessions: SessionPort;
+  pending: PendingSignup;
   signupUrl: string;
   appOrigin: string;
 }): { authenticate: RequestHandler; requireUser: RequestHandler; requireWebSession: RequestHandler } {
-  /** CSRF rules for cookie-authenticated writes (UC-AUTH-10). */
-  function checkCsrf(req: Request): void {
-    if (!UNSAFE.has(req.method)) return;
-    const origin = req.header('origin');
-    if (!req.header('x-requested-with') || (origin !== undefined && origin !== appOrigin)) {
-      throw new HttpError(403, 'Forbidden', 'Cross-site request rejected');
-    }
-  }
-
   async function viaBearer(req: Request, res: Parameters<RequestHandler>[1], token: string) {
     let claims: Claims;
     try {
@@ -72,7 +68,7 @@ export function createAuthMiddleware<U extends AuthUser>({
   }
 
   async function viaCookie(req: Request, res: Parameters<RequestHandler>[1], cookie: string) {
-    checkCsrf(req);
+    csrfCheck(req, appOrigin);
     const session = await sessions.web(cookie);
     const user = await findUserById(session.userId);
     if (!user) throw new HttpError(401, 'Unauthorized');
@@ -82,14 +78,27 @@ export function createAuthMiddleware<U extends AuthUser>({
     (req as AuthedRequest).user = user;
   }
 
+  /** Only POST /profile accepts the sealed pending sign-up cookie (UC-SIGNUP-07). */
+  async function viaPending(req: Request, res: Parameters<RequestHandler>[1], value: string) {
+    csrfCheck(req, appOrigin);
+    const identity = pending.read(value);
+    if (!identity) throw new HttpError(401, 'Unauthorized');
+    res.locals['identity'] = identity;
+    res.locals['authKind'] = 'pending';
+  }
+
   const authenticate: RequestHandler = (req, res, next) => {
     const bearer = /^Bearer\s+(\S+)$/i.exec(req.header('authorization') ?? '');
     const cookie = readCookie(req.header('cookie'), SESSION_COOKIE);
+    const pendingCookie =
+      req.method === 'POST' && req.path === '/profile' ? readCookie(req.header('cookie'), PENDING_COOKIE) : undefined;
     const run = bearer?.[1]
       ? viaBearer(req, res, bearer[1])
       : cookie
         ? viaCookie(req, res, cookie)
-        : Promise.reject(new HttpError(401, 'Unauthorized'));
+        : pendingCookie
+          ? viaPending(req, res, pendingCookie)
+          : Promise.reject(new HttpError(401, 'Unauthorized'));
     run.then(() => next(), next);
   };
 
