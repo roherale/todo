@@ -69,6 +69,7 @@ describe('identity provider adapter', () => {
     await expect(p.exchangeCode('the-code')).resolves.toEqual({
       sub: 'user_01',
       email: 'ana@example.test',
+      displayName: null,
       refreshToken: 'refresh-1',
     });
     expect(seen[0]?.body).toMatchObject({ grant_type: 'authorization_code', code: 'the-code', client_id: 'client_fake' });
@@ -110,5 +111,17 @@ describe('identity provider adapter', () => {
     server?.close();
     const refused = await provider(() => ({ status: 400, body: { error: 'invalid_grant' } }));
     await expect(refused.logoutUrl('x')).resolves.toBeUndefined();
+  });
+
+  it('UC-SIGNUP-08: the display name comes from the provider profile, joining first and last name', async () => {
+    const named = { ...user, first_name: 'Ana', last_name: 'Lopez' };
+    const p = await provider(() => ({ status: 200, body: { user: named, access_token: jwt({}), refresh_token: 'r' } }));
+    expect((await p.exchangeCode('c')).displayName).toBe('Ana Lopez');
+    server?.close();
+    const firstOnly = await provider(() => ({
+      status: 200,
+      body: { user: { ...user, first_name: 'Ana' }, access_token: jwt({}), refresh_token: 'r' },
+    }));
+    expect((await firstOnly.exchangeCode('c')).displayName).toBe('Ana');
   });
 });

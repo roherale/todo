@@ -30,7 +30,8 @@ export function createWorkosProvider(options: {
 
     async exchangeCode(code) {
       const result = await workos.userManagement.authenticateWithCode({ clientId, code });
-      return { sub: result.user.id, email: result.user.email, refreshToken: result.refreshToken };
+      const name = [result.user.firstName, result.user.lastName].filter(Boolean).join(' ').trim();
+      return { sub: result.user.id, email: result.user.email, displayName: name || null, refreshToken: result.refreshToken };
     },
 
     async refresh(refreshToken) {

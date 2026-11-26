@@ -58,11 +58,20 @@ export function createAuthRouter(deps: AuthRoutesDeps): Router {
           setCookie(res, SESSION_COOKIE, value, WEB_SESSION_MAX_AGE_S);
           res.redirect(302, '/');
         } else {
-          setCookie(res, PENDING_COOKIE, deps.pending.create({ sub: identity.sub, email: identity.email }), 15 * 60);
+          setCookie(res, PENDING_COOKIE, deps.pending.create({ sub: identity.sub, email: identity.email, displayName: identity.displayName }), 15 * 60);
           res.redirect(302, '/signup');
         }
       })
       .catch(next);
+  });
+
+  /** What the sign-up form may pre-fill. Never the sub, never a token. */
+  router.get('/pending-signup', (req, res, next) => {
+    const sealed = readCookie(req.header('cookie'), PENDING_COOKIE);
+    const identity = sealed ? deps.pending.read(sealed) : undefined;
+    if (!identity) return next(new HttpError(401, 'Unauthorized'));
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ email: identity.email, displayName: identity.displayName });
   });
 
   router.post('/logout', (req, res, next) => {

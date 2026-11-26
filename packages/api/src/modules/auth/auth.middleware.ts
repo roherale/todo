@@ -83,7 +83,7 @@ export function createAuthMiddleware<U extends AuthUser>({
     csrfCheck(req, appOrigin);
     const identity = pending.read(value);
     if (!identity) throw new HttpError(401, 'Unauthorized');
-    res.locals['identity'] = identity;
+    res.locals['identity'] = { sub: identity.sub, email: identity.email };
     res.locals['authKind'] = 'pending';
   }
 

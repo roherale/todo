@@ -10,21 +10,23 @@ export interface Sealer {
 export interface PendingIdentity {
   sub: string;
   email: string;
+  /** The display name from the identity provider's profile, if it has one. */
+  displayName: string | null;
 }
 
 /** The sealed cookie that carries a verified identity from the callback to sign-up. No tokens. */
 export function createPendingSignup(sealer: Sealer, now: () => Date) {
   return {
     create(identity: PendingIdentity): string {
-      return sealer.seal(JSON.stringify({ sub: identity.sub, email: identity.email, exp: now().getTime() + PENDING_TTL_MS }));
+      return sealer.seal(JSON.stringify({ sub: identity.sub, email: identity.email, name: identity.displayName, exp: now().getTime() + PENDING_TTL_MS }));
     },
     /** The identity inside, or undefined when the cookie is tampered with or expired. */
     read(value: string): PendingIdentity | undefined {
       try {
-        const data = JSON.parse(sealer.open(value)) as { sub?: unknown; email?: unknown; exp?: unknown };
+        const data = JSON.parse(sealer.open(value)) as { sub?: unknown; email?: unknown; name?: unknown; exp?: unknown };
         if (typeof data.sub !== 'string' || typeof data.email !== 'string' || typeof data.exp !== 'number') return undefined;
         if (data.exp <= now().getTime()) return undefined;
-        return { sub: data.sub, email: data.email };
+        return { sub: data.sub, email: data.email, displayName: typeof data.name === 'string' && data.name !== '' ? data.name : null };
       } catch {
         return undefined;
       }

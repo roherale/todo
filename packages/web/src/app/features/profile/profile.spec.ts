@@ -28,9 +28,8 @@ describe('ProfilePage', () => {
   it('UC-WEB-08: saving sends only displayName, avatarUrl and timezone, never the email', async () => {
     const { user } = await setup();
     const name = screen.getByLabelText('Display name');
-    await user.clear(name);
-    await user.type(name, 'Ana M. Lopez');
-    await user.type(screen.getByLabelText('Avatar URL'), 'https://example.com/me.png');
+    await typeInto(name as HTMLInputElement, 'Ana M. Lopez');
+    await typeInto(screen.getByLabelText('Avatar URL') as HTMLInputElement, 'https://example.com/me.png');
     await user.click(screen.getByRole('combobox', { name: 'Timezone' }));
     await user.click(await screen.findByRole('option', { name: 'Asia/Tokyo' }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
@@ -43,7 +42,7 @@ describe('ProfilePage', () => {
 
   it('UC-WEB-08: an empty avatar URL is sent as null, which removes the avatar', async () => {
     const { user } = await setup({ avatarUrl: 'https://example.com/a.png' });
-    await user.clear(screen.getByLabelText('Avatar URL'));
+    await typeInto(screen.getByLabelText('Avatar URL') as HTMLInputElement, '');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     const req = http().expectOne('/api/v1/profile');
     expect(req.request.body.avatarUrl).toBeNull();
@@ -52,7 +51,7 @@ describe('ProfilePage', () => {
 
   it('UC-WEB-08: an invalid avatar URL is reported and nothing is sent', async () => {
     const { user } = await setup();
-    await user.type(screen.getByLabelText('Avatar URL'), 'http://example.com/a.png');
+    await typeInto(screen.getByLabelText('Avatar URL') as HTMLInputElement, 'http://example.com/a.png');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     expect((await screen.findByRole('status')).textContent).toContain('avatarUrl');
     http().expectNone(() => true);

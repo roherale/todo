@@ -1,5 +1,5 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -40,7 +40,7 @@ import { BROWSER_LOCATION, BROWSER_TIMEZONE } from '../../core/browser';
     .error { color: var(--mat-sys-error); margin: 0; }
   `,
 })
-export class SignupPage {
+export class SignupPage implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly location = inject(BROWSER_LOCATION);
 
@@ -49,6 +49,17 @@ export class SignupPage {
   protected readonly avatarUrl = signal('');
   protected readonly errors = signal<string[]>([]);
   protected readonly closed = signal(false);
+
+  /** The display name the identity provider has on file, offered as a starting point. */
+  ngOnInit(): void {
+    this.http.get<{ email: string; displayName: string | null }>('/auth/pending-signup').subscribe({
+      next: (pending) => {
+        if (pending.displayName && !this.displayName()) this.displayName.set(pending.displayName);
+      },
+      // No pending sign-up (or no name): the person simply types their own.
+      error: () => undefined,
+    });
+  }
 
   protected submit(): void {
     const avatar = this.avatarUrl().trim();

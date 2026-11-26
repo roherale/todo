@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/angular';
 import userEvent from '@testing-library/user-event';
 import type { Task } from '@todo/shared';
-import { harness, http, profile, task } from '../../testing';
+import { harness, http, profile, task, typeInto } from '../../testing';
 import { TasksPage } from './tasks.page';
 
 async function setup(items: Task[] = [], profile = {}, nextCursor: string | null = null) {
@@ -53,7 +53,7 @@ describe('TasksPage', () => {
   it('UC-WEB-05: creating a task sends it to the API and reloads the list', async () => {
     const { user, view } = await setup([]);
     await user.click(screen.getByRole('button', { name: 'New task' }));
-    await user.type(await screen.findByLabelText('Title'), 'Write report');
+    await typeInto((await screen.findByLabelText('Title')) as HTMLInputElement, 'Write report');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     const create = await pending('POST', '/api/v1/tasks');
     expect(create.request.body).toMatchObject({ title: 'Write report', status: 'new' });
@@ -75,10 +75,9 @@ describe('TasksPage', () => {
   it('UC-WEB-05: a due date typed in the profile timezone is sent as that instant; all-day keeps the written date', async () => {
     const { user } = await setup([], { timezone: 'America/Mexico_City' });
     await user.click(screen.getByRole('button', { name: 'New task' }));
-    await user.type(await screen.findByLabelText('Title'), 'Timed');
-    await user.type(screen.getByLabelText(/Due date/), '2026-11-28');
-    await user.clear(screen.getByLabelText('Due time'));
-    await user.type(screen.getByLabelText('Due time'), '15:30');
+    await typeInto((await screen.findByLabelText('Title')) as HTMLInputElement, 'Timed');
+    await typeInto(screen.getByLabelText(/Due date/) as HTMLInputElement, '2026-11-28');
+    await typeInto(screen.getByLabelText('Due time') as HTMLInputElement, '15:30');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     const timed = await pending('POST', '/api/v1/tasks');
     expect(timed.request.body).toMatchObject({ dueAt: '2026-11-28T21:30:00.000Z', dueAllDay: false });
@@ -86,8 +85,8 @@ describe('TasksPage', () => {
     http().expectOne((r) => r.method === 'GET').flush({ items: [], nextCursor: null });
 
     await user.click(screen.getByRole('button', { name: 'New task' }));
-    await user.type(await screen.findByLabelText('Title'), 'All day');
-    await user.type(screen.getByLabelText(/Due date/), '2026-11-28');
+    await typeInto((await screen.findByLabelText('Title')) as HTMLInputElement, 'All day');
+    await typeInto(screen.getByLabelText(/Due date/) as HTMLInputElement, '2026-11-28');
     await user.click(screen.getByRole('checkbox', { name: 'All day' }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
     const allDay = await pending('POST', '/api/v1/tasks');
@@ -104,8 +103,7 @@ describe('TasksPage', () => {
     expect((title as HTMLInputElement).value).toBe('Old title');
     expect((screen.getByLabelText(/Due date/) as HTMLInputElement).value).toBe('2026-11-28');
     expect((screen.getByLabelText('Due time') as HTMLInputElement).value).toBe('15:30');
-    await user.clear(title);
-    await user.type(title, 'New title');
+    await typeInto(title as HTMLInputElement, 'New title');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     const patch = await pending('PATCH', `/api/v1/tasks/${original.id}`);
     expect(patch.request.body).toMatchObject({ title: 'New title', notes: 'n', dueAt: '2026-11-28T21:30:00.000Z', dueAllDay: false });
@@ -117,7 +115,7 @@ describe('TasksPage', () => {
     const original = task({ title: 'Has due', dueAt: '2026-11-28T21:30:00.000Z' });
     const { user } = await setup([original], { timezone: 'America/Mexico_City' });
     await user.click(screen.getByRole('button', { name: 'Edit' }));
-    await user.clear(await screen.findByLabelText(/Due date/));
+    await typeInto((await screen.findByLabelText(/Due date/)) as HTMLInputElement, '');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     const patch = await pending('PATCH', `/api/v1/tasks/${original.id}`);
     expect(patch.request.body.dueAt).toBeNull();

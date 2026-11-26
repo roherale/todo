@@ -27,7 +27,7 @@ const config = testConfig({
 });
 
 /** A stand-in for the external identity provider: the one boundary this API does not own. */
-function fakeProvider(identities: Record<string, { sub: string; email: string }>) {
+function fakeProvider(identities: Record<string, { sub: string; email: string; displayName?: string | null }>) {
   const calls = { refresh: [] as string[], exchange: [] as string[] };
   const provider: IdentityProvider = {
     authorizationUrl: (state) => `https://auth.example.test/authorize?state=${state}`,
@@ -35,7 +35,7 @@ function fakeProvider(identities: Record<string, { sub: string; email: string }>
       calls.exchange.push(code);
       const identity = identities[code];
       if (!identity) return Promise.reject(new Error('bad code'));
-      return Promise.resolve({ ...identity, refreshToken: `refresh-for-${code}` });
+      return Promise.resolve({ displayName: null, ...identity, refreshToken: `refresh-for-${code}` });
     },
     refresh(token) {
       calls.refresh.push(token);
@@ -51,7 +51,7 @@ afterAll(async () => {
   await Promise.all(pools.map((p) => p.end()));
 });
 
-function setup(identities: Record<string, { sub: string; email: string }> = {}) {
+function setup(identities: Record<string, { sub: string; email: string; displayName?: string | null }> = {}) {
   const clock = createClock(new Date('2026-12-01T10:00:00Z'));
   const { provider, calls } = fakeProvider(identities);
   const ctx = buildTestApp(undefined, config, { clock, provider });
@@ -166,6 +166,31 @@ describe('web sign-in', () => {
   });
 });
 
+describe('routes that work without a session', () => {
+  it('UC-AUTH-08: the /auth sign-in routes and the pending-cookie sign-up are reachable; everything else needs a session or token', async () => {
+    const who = { sub: `workos|${randomUUID()}`, email: 'new-person@example.test' };
+    const s = setup({ fresh: who });
+    // Reachable with no session or token: none of these answer 401 because of missing credentials.
+    expect((await request(s.app).get('/healthz')).status).toBe(200);
+    expect((await request(s.app).get('/auth/login')).status).toBe(302);
+    expect((await request(s.app).get('/auth/callback')).status).toBe(400);
+    expect((await request(s.app).post('/auth/logout').set(WEB_HEADERS)).status).toBe(204);
+    const value = valueOf(cookieNamed(await callback(s, 'fresh'), PENDING_COOKIE)!);
+    expect((await request(s.app).get('/auth/pending-signup').set('cookie', `${PENDING_COOKIE}=${value}`)).status).toBe(200);
+    const signup = await request(s.app)
+      .post('/api/v1/profile')
+      .set('cookie', `${PENDING_COOKIE}=${value}`)
+      .set(WEB_HEADERS)
+      .send({ displayName: 'N', timezone: 'UTC' });
+    expect(signup.status).toBe(201);
+    // Outside that set, a request with no credentials gets 401, even for routes next to it.
+    for (const [method, path] of [['get', '/api/v1/profile'], ['get', '/api/v1/tasks'], ['post', '/api/v1/session/heartbeat'], ['get', '/auth/pending-signup']] as const) {
+      const res = await request(s.app)[method](path);
+      expect(res.status, `${method} ${path}`).toBe(401);
+    }
+  });
+});
+
 describe('pending sign-up', () => {
   const identity = () => ({ sub: `workos|${randomUUID()}`, email: 'new-person@example.test' });
 
@@ -264,6 +289,44 @@ describe('pending sign-up', () => {
       .send({ displayName: 'S', timezone: 'UTC' });
     expect(res.status).toBe(403);
     expect(res.body.type).toMatch(/signup-closed$/);
+  });
+});
+
+describe('pending sign-up details', () => {
+  it('UC-SIGNUP-08: returns only the email and display name for a valid cookie', async () => {
+    const who = { sub: `workos|${randomUUID()}`, email: 'new-person@example.test', displayName: 'New Person' };
+    const s = setup({ named: who });
+    const value = valueOf(cookieNamed(await callback(s, 'named'), PENDING_COOKIE)!);
+    const res = await request(s.app).get('/auth/pending-signup').set('cookie', `${PENDING_COOKIE}=${value}`);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ email: 'new-person@example.test', displayName: 'New Person' });
+    expect(JSON.stringify(res.body) + JSON.stringify(res.headers)).not.toContain(who.sub);
+    expect(res.headers['cache-control']).toBe('no-store');
+  });
+
+  it('UC-SIGNUP-08: displayName is null when the provider has no name', async () => {
+    const who = { sub: `workos|${randomUUID()}`, email: 'new-person@example.test' };
+    const s = setup({ anon: who });
+    const value = valueOf(cookieNamed(await callback(s, 'anon'), PENDING_COOKIE)!);
+    const res = await request(s.app).get('/auth/pending-signup').set('cookie', `${PENDING_COOKIE}=${value}`);
+    expect(res.body).toEqual({ email: 'new-person@example.test', displayName: null });
+  });
+
+  it('UC-SIGNUP-08: without a valid cookie it returns 401', async () => {
+    const who = { sub: `workos|${randomUUID()}`, email: 'new-person@example.test' };
+    const s = setup({ x: who });
+    expect((await request(s.app).get('/auth/pending-signup')).status).toBe(401);
+    expect((await request(s.app).get('/auth/pending-signup').set('cookie', `${PENDING_COOKIE}=garbage`)).status).toBe(401);
+    const value = valueOf(cookieNamed(await callback(s, 'x'), PENDING_COOKIE)!);
+    s.clock.advance(16 * MIN);
+    expect((await request(s.app).get('/auth/pending-signup').set('cookie', `${PENDING_COOKIE}=${value}`)).status).toBe(401);
+  });
+
+  it('UC-SIGNUP-08: a session cookie is not accepted as a pending sign-up cookie', async () => {
+    const s = setup();
+    const userId = await createUser(s.database);
+    const session = await createWebSession(s.database, userId, { now: s.clock.now() });
+    expect((await request(s.app).get('/auth/pending-signup').set('cookie', `${SESSION_COOKIE}=${session}`)).status).toBe(401);
   });
 });
 
