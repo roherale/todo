@@ -17,7 +17,9 @@ export function createUsersModule({
   allowedSignupEmails: string;
   hooks?: UsersHooks;
 }) {
-  const service = createUsersService(createUsersRepository(db), allowedSignupEmails, hooks);
+  const service = createUsersService(createUsersRepository(db), allowedSignupEmails, hooks ?? {}, (work) =>
+    db.transaction((tx) => work(tx)),
+  );
   const controller = createUsersController(service);
   return { signupRouter: createSignupRouter(controller), profileRouter: createProfileRouter(controller), service };
 }

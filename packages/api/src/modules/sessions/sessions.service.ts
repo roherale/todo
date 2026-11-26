@@ -147,10 +147,6 @@ export function createSessionsService({ repo, key, now, cliClientId, webClientId
       await repo.touch(session.userId, session.id, now());
     },
 
-    async endCurrent(session: SessionContext): Promise<void> {
-      await repo.end(session.userId, session.id, now());
-    },
-
     /** Sign-out: ends the web session behind a cookie and returns its refresh token, if any. */
     async endWeb(cookie: string): Promise<{ refreshToken?: string } | undefined> {
       const row = await repo.findByIdHash(sha256(cookie));

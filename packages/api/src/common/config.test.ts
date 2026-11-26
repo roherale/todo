@@ -58,3 +58,10 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ DATABASE_URL: 'postgres://x', NODE_ENV: 'production' })).toThrowError(/SESSION_ENCRYPTION_KEY/);
   });
 });
+
+describe('session key outside production', () => {
+  it('UC-SESSION-17: outside production a missing key is accepted and left for the process to replace with a random one', () => {
+    const config = loadConfig({ DATABASE_URL: 'postgres://x', NODE_ENV: 'development' });
+    expect(config.SESSION_ENCRYPTION_KEY).toBeUndefined();
+  });
+});

@@ -56,3 +56,15 @@ describe('routes without a token', () => {
     expect((await request(ctx.app).get('/auth/nothing')).text).not.toContain('<app-root>');
   });
 });
+
+describe('a web build without index.html', () => {
+  it('UC-AUTH-08: a client-side route returns a normal 404 instead of failing', async () => {
+    const empty = mkdtempSync(join(tmpdir(), 'web-empty-'));
+    const other = buildTestApp(undefined, testConfig({ WEB_DIST_DIR: empty }));
+    try {
+      expect((await request(other.app).get('/tasks/1')).status).toBe(404);
+    } finally {
+      await other.database.pool.end();
+    }
+  });
+});

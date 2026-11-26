@@ -1,4 +1,5 @@
 import type { Profile, SignupBody, UpdateProfileBody } from '@todo/shared';
+import type { Executor } from '../../common/db.js';
 import { HttpError } from '../../common/errors.js';
 import type { UserRow, UsersRepository } from './users.repository.js';
 
@@ -22,11 +23,22 @@ export function toProfile(row: UserRow): Profile {
 }
 
 export interface UsersHooks {
-  /** Called after the timezone changed, so other modules can keep their data consistent. */
-  timezoneChanged?: (userId: string, oldTimezone: string, newTimezone: string) => Promise<void>;
+  /**
+   * Called inside the same transaction as the timezone change, so other modules keep their data
+   * consistent: either everything is applied or nothing is.
+   */
+  timezoneChanged?: (userId: string, oldTimezone: string, newTimezone: string, tx: Executor) => Promise<void>;
 }
 
-export function createUsersService(repo: UsersRepository, allowedEmails: string, hooks: UsersHooks = {}) {
+/** Runs `work` in one database transaction. */
+export type Transact = <T>(work: (tx: Executor) => Promise<T>) => Promise<T>;
+
+export function createUsersService(
+  repo: UsersRepository,
+  allowedEmails: string,
+  hooks: UsersHooks,
+  transact: Transact,
+) {
   const allowed = new Set(
     allowedEmails
       .split(',')
@@ -39,11 +51,14 @@ export function createUsersService(repo: UsersRepository, allowedEmails: string,
     findById: (id: string) => repo.findById(id),
 
     async update(user: UserRow, body: UpdateProfileBody): Promise<Profile> {
-      const updated = await repo.update(user.id, body);
-      if (!updated) throw new HttpError(404, 'Not Found');
-      if (body.timezone !== undefined && body.timezone !== user.timezone) {
-        await hooks.timezoneChanged?.(user.id, user.timezone, body.timezone);
-      }
+      const updated = await transact(async (tx) => {
+        const row = await repo.update(user.id, body, tx);
+        if (!row) throw new HttpError(404, 'Not Found');
+        if (body.timezone !== undefined && body.timezone !== user.timezone) {
+          await hooks.timezoneChanged?.(user.id, user.timezone, body.timezone, tx);
+        }
+        return row;
+      });
       return toProfile(updated);
     },
 

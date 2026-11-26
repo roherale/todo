@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import request from 'supertest';
 import { afterAll, describe, expect, it } from 'vitest';
 import { PENDING_COOKIE, SESSION_COOKIE, type IdentityProvider } from '../src/modules/auth/index.js';
-import { decryptForUser, sessions, sha256 } from '../src/modules/sessions/index.js';
+import { decryptForUser, encryptForUser, sessions, sha256 } from '../src/modules/sessions/index.js';
 import { users } from '../src/modules/users/index.js';
 import {
   WEB_HEADERS,
@@ -328,5 +328,36 @@ describe('refresh and client types', () => {
     await request(s.app).get('/api/v1/tasks').set(as('claude'));
     await request(s.app).get('/api/v1/tasks').set(as('gemini'));
     expect(await s.database.db.select().from(sessions).where(eq(sessions.userId, userId))).toHaveLength(2);
+  });
+});
+
+describe('edge cases', () => {
+  it('UC-AUTH-11: signing out a session whose refresh token cannot be decrypted still ends it, with no sign-out URL', async () => {
+    const s = setup();
+    const userId = await createUser(s.database);
+    const cookie = await createWebSession(s.database, userId, { now: s.clock.now(), refreshToken: 'rt', key: Buffer.alloc(32, 1) });
+    const res = await request(s.app).post('/auth/logout').set('cookie', `${SESSION_COOKIE}=${cookie}`).set(WEB_HEADERS);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ logoutUrl: null });
+    expect((await request(s.app).get('/api/v1/tasks').set('cookie', `${SESSION_COOKIE}=${cookie}`)).status).toBe(401);
+  });
+
+  it('UC-AUTH-11: signing out with a cookie that matches no session is a harmless 204', async () => {
+    const s = setup();
+    const res = await request(s.app).post('/auth/logout').set('cookie', `${SESSION_COOKIE}=unknown-value`).set(WEB_HEADERS);
+    expect(res.status).toBe(204);
+  });
+
+  it('UC-SIGNUP-07: a sealed cookie with the wrong contents is refused', async () => {
+    const s = setup();
+    const sealed = (json: object) => encryptForUser(JSON.stringify(json), 'pending-signup', { key: KEY, version: 1 });
+    for (const content of [{ sub: 1 }, { sub: 'a', email: 'b' }, { sub: 'a', email: 'b', exp: 'soon' }]) {
+      const res = await request(s.app)
+        .post('/api/v1/profile')
+        .set('cookie', `${PENDING_COOKIE}=${sealed(content)}`)
+        .set(WEB_HEADERS)
+        .send({ displayName: 'X', timezone: 'UTC' });
+      expect(res.status, JSON.stringify(content)).toBe(401);
+    }
   });
 });

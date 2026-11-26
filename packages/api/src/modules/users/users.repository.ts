@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import type { Executor } from '../../common/db.js';
 import { uuidv7 } from '../../common/uuid7.js';
 import { users } from './users.table.js';
 
@@ -29,8 +30,9 @@ export function createUsersRepository(db: NodePgDatabase) {
     async update(
       id: string,
       changes: Partial<Pick<UserRow, 'displayName' | 'avatarUrl' | 'timezone' | 'pageSize'>>,
+      executor: Executor = db,
     ): Promise<UserRow | undefined> {
-      const [row] = await db
+      const [row] = await executor
         .update(users)
         .set({ ...changes, updatedAt: new Date() })
         .where(eq(users.id, id))

@@ -405,3 +405,23 @@ describe('CSRF', () => {
     expect((await request(s.app).get('/api/v1/tasks').set(withCookie(cookie))).status).toBe(200);
   });
 });
+
+describe('session keys', () => {
+  it('UC-SESSION-14: the same client and sid cannot be used by a second user', async () => {
+    const s = fresh();
+    const a = await createUser(s.database);
+    const b = await createUser(s.database);
+    const sid = `shared-${randomUUID()}`;
+    expect((await request(s.app).get('/api/v1/tasks').set(withBearer(tokenFor(a, { sid, clientId: 'claude' })))).status).toBe(200);
+    expect((await request(s.app).get('/api/v1/tasks').set(withBearer(tokenFor(b, { sid, clientId: 'claude' })))).status).toBe(401);
+  });
+
+  it('UC-SESSION-06: two simultaneous first requests of one new sign-in both succeed and share one session', async () => {
+    const s = fresh();
+    const user = await createUser(s.database);
+    const token = tokenFor(user, { sid: `race-${randomUUID()}` });
+    const results = await Promise.all(Array.from({ length: 6 }, () => request(s.app).get('/api/v1/tasks').set(withBearer(token))));
+    expect(results.map((r) => r.status)).toEqual([200, 200, 200, 200, 200, 200]);
+    expect(await rows(s, user)).toHaveLength(1);
+  });
+});

@@ -40,7 +40,7 @@ export function routes({ ping, logger, db, config, testKeys, now, provider, refr
   const users = createUsersModule({
     db,
     allowedSignupEmails: config.ALLOWED_SIGNUP_EMAILS,
-    hooks: { timezoneChanged: (id, from, to) => tasks.service.keepAllDayDates(id, from, to) },
+    hooks: { timezoneChanged: (id, from, to, tx) => tasks.service.keepAllDayDates(id, from, to, tx) },
   });
   const clock = now ?? (() => new Date());
   // Outside production a missing key gives each process its own, so sessions end on restart.

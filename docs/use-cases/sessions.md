@@ -34,7 +34,7 @@ Time-based criteria are tested with a controllable clock. "Web" means a cookie s
 | UC-SESSION-14 | CLI and MCP sessions are stored with `idHash = sha256(client_id + ":" + sid)`. The raw `sid` doesn't appear in any column, and the same `sid` from two different clients gives two different sessions. |
 | UC-SESSION-15 | The `sessions` table has exactly these columns: `id`, `userId`, `clientType`, `idHash`, `refreshTokenEnc`, `keyVersion`, `refreshedAt`, `firstSeenAt`, `lastSeenAt`, `endedAt`. In particular, there is no IP address and no user agent. |
 | UC-SESSION-16 | No API response body or header (except `Set-Cookie` at sign-in) ever contains a session ID, a cookie value, or any token. |
-| UC-SESSION-17 | Startup fails if the session encryption key is missing or the wrong length (see UC-OPS-04). |
+| UC-SESSION-17 | In production config, startup fails if the session encryption key is missing. In any config, startup fails if the key is the wrong length. Outside production, a missing key is replaced by a random key for that process only. |
 
 ## Ending sessions
 

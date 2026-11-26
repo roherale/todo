@@ -1,6 +1,7 @@
 import { and, desc, eq, isNotNull, isNull, lt, ne, sql, type SQL } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { Task, TaskStatus } from '@todo/shared';
+import type { Executor } from '../../common/db.js';
 import { uuidv7 } from '../../common/uuid7.js';
 import { taskCounters, tasks } from './tasks.table.js';
 
@@ -117,16 +118,16 @@ export function createTasksRepository(db: NodePgDatabase) {
     },
 
     /** Every all-day task of one owner, trashed or not, with its stored due instant. */
-    async allDayDue(ownerId: string): Promise<{ id: string; dueAt: Date }[]> {
-      const rows = await db
+    async allDayDue(ownerId: string, executor: Executor = db): Promise<{ id: string; dueAt: Date }[]> {
+      const rows = await executor
         .select({ id: tasks.id, dueAt: tasks.dueAt })
         .from(tasks)
         .where(and(eq(tasks.ownerId, ownerId), eq(tasks.dueAllDay, true), isNotNull(tasks.dueAt)));
       return rows.flatMap((r) => (r.dueAt ? [{ id: r.id, dueAt: r.dueAt }] : []));
     },
 
-    async setDueAt(ownerId: string, id: string, dueAt: Date): Promise<void> {
-      await db
+    async setDueAt(ownerId: string, id: string, dueAt: Date, executor: Executor = db): Promise<void> {
+      await executor
         .update(tasks)
         .set({ dueAt, updatedAt: new Date() })
         .where(and(eq(tasks.ownerId, ownerId), eq(tasks.id, id)));

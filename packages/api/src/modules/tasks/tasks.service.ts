@@ -1,5 +1,6 @@
 import type { CreateTaskBody, ListTasksQuery, Task, TaskPage, UpdateTaskBody } from '@todo/shared';
 import { endOfLocalDay, localDate } from '../../common/due.js';
+import type { Executor } from '../../common/db.js';
 import { HttpError } from '../../common/errors.js';
 import type { TaskChanges, TaskRef, TasksRepository } from './tasks.repository.js';
 
@@ -127,10 +128,10 @@ export function createTasksService(repo: TasksRepository, now: () => Date = () =
     },
 
     /** After a timezone change, every all-day task keeps its calendar date (UC-PROFILE-07). */
-    async keepAllDayDates(ownerId: string, oldTimezone: string, newTimezone: string): Promise<void> {
-      for (const task of await repo.allDayDue(ownerId)) {
+    async keepAllDayDates(ownerId: string, oldTimezone: string, newTimezone: string, executor?: Executor): Promise<void> {
+      for (const task of await repo.allDayDue(ownerId, executor)) {
         const date = localDate(task.dueAt, oldTimezone);
-        await repo.setDueAt(ownerId, task.id, endOfLocalDay(date, newTimezone));
+        await repo.setDueAt(ownerId, task.id, endOfLocalDay(date, newTimezone), executor);
       }
     },
 
