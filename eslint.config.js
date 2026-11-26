@@ -29,6 +29,18 @@ export default tseslint.config(
     },
   },
   {
+    // Clients never import from the API (ADR: shared is the only package they depend on).
+    files: ['packages/cli/**/*.ts', 'packages/web/**/*.ts'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [{ regex: '(^|/)api/(src|test)/|^@todo/api', message: 'Clients must not import from the API. Share code through @todo/shared.' }] }],
+    },
+  },
+  {
+    // The one exception: the CLI's own tests start the real API to test against it.
+    files: ['packages/cli/test/**/*.ts', 'packages/cli/**/*.test.ts'],
+    rules: { 'no-restricted-imports': 'off' },
+  },
+  {
     files: testFiles,
     plugins: { vitest },
     rules: {
