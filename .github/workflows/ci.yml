@@ -41,6 +41,8 @@ jobs:
       - run: pnpm typecheck
       - name: Tests and coverage gates
         run: pnpm test:coverage
+      - name: Web tests and coverage gates
+        run: pnpm --filter @todo/web test
       - name: UC-ISO-08 mutation testing kills owner-condition mutants (api changes only)
         if: ${{ github.event_name == 'pull_request' }}
         run: |

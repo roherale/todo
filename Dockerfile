@@ -5,7 +5,8 @@ COPY . .
 RUN pnpm install --frozen-lockfile \
  && pnpm -r build \
  && pnpm --filter @todo/api deploy --legacy --prod /out \
- && rm -rf /out/src /out/test /out/tsconfig*.json /out/pnpm-lock.yaml
+ && rm -rf /out/src /out/test /out/tsconfig*.json /out/pnpm-lock.yaml \
+ && cp -r packages/web/dist/web/browser /out/public
 
 FROM gcr.io/distroless/nodejs26-debian13:nonroot@sha256:a84242e747fbb5aaaa0180c273b6f7130ca34b3300082192ef58eea96089eb3c
 ARG SOURCE_REPO=""

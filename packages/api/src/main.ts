@@ -22,7 +22,7 @@ function main(): void {
           apiKey: config.WORKOS_API_KEY,
           clientId: config.WORKOS_CLIENT_ID,
           redirectUri: `${config.APP_ORIGIN}/auth/callback`,
-          returnTo: `${config.APP_ORIGIN}/`,
+          returnTo: `${config.APP_ORIGIN}/signed-out`,
         })
       : undefined;
   const app = createApp({ logger, ping: database.ping, db: database.db, config, provider });

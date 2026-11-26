@@ -24,20 +24,5 @@
   "UC-MCP-08": "M4",
   "UC-MCP-09": "M4",
   "UC-MCP-10": "M4",
-  "UC-SESSION-05": "M4",
-  "UC-SESSION-09": "M3",
-  "UC-SESSION-10": "M3",
-  "UC-SESSION-11": "M3",
-  "UC-WEB-01": "M3",
-  "UC-WEB-02": "M3",
-  "UC-WEB-03": "M3",
-  "UC-WEB-04": "M3",
-  "UC-WEB-05": "M3",
-  "UC-WEB-06": "M3",
-  "UC-WEB-07": "M3",
-  "UC-WEB-08": "M3",
-  "UC-WEB-09": "M3",
-  "UC-WEB-10": "M3",
-  "UC-WEB-11": "M3",
-  "UC-WEB-12": "M3"
+  "UC-SESSION-05": "M4"
 }

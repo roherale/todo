@@ -60,7 +60,7 @@ function walk(dir: string, out: string[] = []): string[] {
     if (name === 'node_modules' || name === 'dist' || name === '.git') continue;
     const p = join(dir, name);
     if (statSync(p).isDirectory()) walk(p, out);
-    else if (/\.test\.ts$|\.ya?ml$/.test(name)) out.push(p);
+    else if (/\.(test|spec)\.ts$|\.ya?ml$/.test(name)) out.push(p);
   }
   return out;
 }
