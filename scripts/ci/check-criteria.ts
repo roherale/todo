@@ -16,7 +16,7 @@ export function definedCriteria(markdown: string): string[] {
 export function coveredCriteria(sources: string[]): Set<string> {
   const covered = new Set<string>();
   for (const src of sources) {
-    for (const m of src.matchAll(/^\s*(?:it|test)\(\s*['"`](UC-[A-Z]+-\d{2})\b/gm)) covered.add(m[1] as string);
+    for (const m of src.matchAll(/^\s*(?:it|test)(?:\.each\([^)]*\))?\(\s*['"`](UC-[A-Z]+-\d{2})\b/gm)) covered.add(m[1] as string);
     for (const m of src.matchAll(/^\s*(?:-\s*)?name:\s*["']?(UC-[A-Z]+-\d{2})\b/gm)) covered.add(m[1] as string);
   }
   return covered;

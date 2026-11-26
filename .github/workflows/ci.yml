@@ -41,9 +41,15 @@ jobs:
       - run: pnpm typecheck
       - name: Tests and coverage gates
         run: pnpm test:coverage
+      - name: UC-ISO-08 mutation testing kills owner-condition mutants (api changes only)
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -q '^packages/api/'; then
+            pnpm exec stryker run
+          fi
       - name: UC-DEPLOY-12 every criterion has a test and every named criterion exists
         # Areas widen as milestones add tests; the target is every area.
-        run: pnpm tsx scripts/ci/check-criteria.ts OPS,DEPLOY
+        run: pnpm tsx scripts/ci/check-criteria.ts OPS,DEPLOY,TASK,TRASH
       - name: UC-DEPLOY-09 every FROM line is pinned by digest
         run: pnpm tsx scripts/ci/check-pins.ts Dockerfile
       - name: UC-DEPLOY-05 migration check

@@ -3,6 +3,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     include: ['packages/*/src/**/*.test.ts', 'packages/api/test/**/*.test.ts', 'scripts/**/*.test.ts'],
+    globalSetup: ['packages/api/test/global-setup.ts'],
     testTimeout: 20_000,
     alias: { '@todo/shared': new URL('./packages/shared/src/index.ts', import.meta.url).pathname },
     coverage: {

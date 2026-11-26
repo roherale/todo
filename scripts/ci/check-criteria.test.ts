@@ -21,4 +21,9 @@ describe('criteria coverage check', () => {
   it('UC-DEPLOY-12: reports criterion IDs that a test or step names but no use case defines', () => {
     expect(unknownCriteria(['UC-A-01'], new Set(['UC-A-01', 'UC-A-99']))).toEqual(['UC-A-99']);
   });
+
+  it('UC-DEPLOY-12: recognises parameterised tests written with it.each', () => {
+    const covered = coveredCriteria(["  it.each(STATUSES)('UC-A-03: works for %s', () => {})"]);
+    expect([...covered]).toEqual(['UC-A-03']);
+  });
 });
