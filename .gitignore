@@ -1,0 +1,21 @@
+# dependencies and build output
+node_modules/
+dist/
+coverage/
+reports/
+.angular/
+
+# local environment and secrets (never commit)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# local-only agent and editor files
+CLAUDE.local.md
+.claude/settings.local.json
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
