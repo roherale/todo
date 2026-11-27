@@ -77,6 +77,78 @@ describe('login and logout', () => {
     expect(refresh?.params.get('resource')).toBe(published.resource);
   });
 
+  it('UC-CLI-01: the authorize request asks for the offline_access scope, which is what yields a refresh token', async () => {
+    const who = await stack.createUser();
+    stack.signInAs(who);
+    const h = harness(stack);
+    const before = stack.log.authorizeParams.length;
+    expect(await run(['login'], h.deps)).toBe(0);
+    const scope = stack.log.authorizeParams.slice(before)[0]!.get('scope')!;
+    expect(scope.split(' ').sort()).toEqual(['email', 'offline_access', 'openid', 'profile']);
+  });
+
+  it('UC-CLI-01: a token response without a refresh token is reported as a missing offline_access permission', async () => {
+    const who = await stack.createUser();
+    stack.signInAs(who);
+    const h = harness(stack);
+    h.deps.fetch = async (input, init) => {
+      const res = await fetch(input, init);
+      if (!String(input).endsWith('/token')) return res;
+      const body = (await res.json()) as Record<string, unknown>;
+      delete body['refresh_token'];
+      return new Response(JSON.stringify(body), { status: 200 });
+    };
+    expect(await run(['login'], h.deps)).toBe(1);
+    expect(h.err.join('\n')).toContain('did not return a refresh token. It may be missing the offline_access permission.');
+    expect(h.tokens.current()).toBeUndefined();
+  });
+
+  it('UC-CLI-01: a refused sign-in shows the server\'s error and description, and never a token or the code', async () => {
+    const who = await stack.createUser();
+    stack.signInAs(who);
+    const h = harness(stack);
+    let sent = '';
+    h.deps.fetch = async (input, init) => {
+      if (!String(input).endsWith('/token')) return fetch(input, init);
+      sent = String(init?.body ?? '');
+      return new Response(
+        JSON.stringify({ error: 'invalid_target', error_description: 'The resource is not allowed\nfor this client', access_token: 'leaked-access', refresh_token: 'leaked-refresh' }),
+        { status: 400 },
+      );
+    };
+    expect(await run(['login'], h.deps)).toBe(1);
+    const shown = h.err.join('\n');
+    expect(shown).toContain('The sign-in server refused the request: invalid_target (The resource is not allowed for this client)');
+    const code = new URLSearchParams(sent).get('code')!;
+    expect(code).not.toBe('');
+    for (const secret of ['leaked-access', 'leaked-refresh', code]) expect(shown).not.toContain(secret);
+    expect(h.tokens.current()).toBeUndefined();
+  });
+
+  it('UC-CLI-01: a refusal without an error field keeps the plain message', async () => {
+    const who = await stack.createUser();
+    stack.signInAs(who);
+    const h = harness(stack);
+    h.deps.fetch = async (input, init) => (String(input).endsWith('/token') ? new Response('<html>nope</html>', { status: 502 }) : fetch(input, init));
+    expect(await run(['login'], h.deps)).toBe(1);
+    expect(h.err).toEqual(['Error: The sign-in server refused the request']);
+  });
+
+  it('UC-CLI-03: a refresh that returns no refresh token ends in "Not logged in" and stores nothing', async () => {
+    const who = await stack.createUser();
+    const h = harness(stack, { tokens: stack.issueTokens(who, -120) });
+    h.deps.fetch = async (input, init) => {
+      const res = await fetch(input, init);
+      if (!String(input).endsWith('/token')) return res;
+      const body = (await res.json()) as Record<string, unknown>;
+      delete body['refresh_token'];
+      return new Response(JSON.stringify(body), { status: 200 });
+    };
+    expect(await run(['ls'], h.deps)).toBe(1);
+    expect(h.err).toEqual([`Error: ${NOT_LOGGED_IN}`]);
+    expect(h.tokens.current()).toBeUndefined();
+  });
+
   it('UC-CLI-01: if the API does not publish a resource, login stops with a clear message', async () => {
     const h = harness(stack);
     h.deps.fetch = async (input, init) => {
