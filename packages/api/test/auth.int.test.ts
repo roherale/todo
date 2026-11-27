@@ -123,3 +123,39 @@ describe('sign-up guard', () => {
     });
   });
 });
+
+describe('agent tokens', () => {
+  const challenge = () => `Bearer resource_metadata="${ctx.config.APP_ORIGIN}/.well-known/oauth-protected-resource"`;
+  const tokenFor = async (subProfile?: string) => {
+    const userId = await createUser(ctx.database);
+    return signer.signToken({ sub: workosIdOf(userId), email: emailOf(userId), ...(subProfile === undefined ? {} : { subProfile }) });
+  };
+  const mcp = (token: string) =>
+    request(ctx.app)
+      .post('/mcp')
+      .set({ authorization: `Bearer ${token}`, accept: 'application/json, text/event-stream' })
+      .send({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
+
+  it('UC-AUTH-13: an ai_agent token gets 401 on /api/v1/*', async () => {
+    const token = await tokenFor('ai_agent');
+    for (const path of ['/api/v1/tasks', '/api/v1/trash', '/api/v1/profile']) {
+      expect((await get(path, token)).status, path).toBe(401);
+    }
+    const write = await request(ctx.app).post('/api/v1/tasks').set('authorization', `Bearer ${token}`).send({ title: 'x' });
+    expect(write.status).toBe(401);
+  });
+
+  it('UC-AUTH-13: an ai_agent token gets 401 on /mcp, with the discovery challenge', async () => {
+    const res = await mcp(await tokenFor('ai_agent'));
+    expect(res.status).toBe(401);
+    expect(res.headers['www-authenticate']).toBe(challenge());
+  });
+
+  it('UC-AUTH-13: tokens with no sub_profile, or any other value, are not affected', async () => {
+    for (const subProfile of [undefined, 'user', 'AI_AGENT', '']) {
+      const token = await tokenFor(subProfile);
+      expect((await get('/api/v1/tasks', token)).status, String(subProfile)).toBe(200);
+      expect((await mcp(token)).status, String(subProfile)).toBe(200);
+    }
+  });
+});

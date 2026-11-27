@@ -14,6 +14,8 @@ export interface TestTokenOverrides {
   sid?: string;
   clientId?: string;
   authTime?: number;
+  /** Adds a `sub_profile` claim, as the identity provider does for agent identities. */
+  subProfile?: string;
   issuer?: string;
   audience?: string;
   /** Seconds from now; negative means already expired. */
@@ -46,6 +48,7 @@ export function createTestSigner({ issuer, audience }: TestSignerOptions) {
       sid: overrides.sid ?? randomUUID(),
       client_id: overrides.clientId ?? 'test-client',
       ...(overrides.authTime === undefined ? {} : { auth_time: overrides.authTime }),
+      ...(overrides.subProfile === undefined ? {} : { sub_profile: overrides.subProfile }),
       iat: now,
       exp: now + (overrides.expiresIn ?? 3600),
     };

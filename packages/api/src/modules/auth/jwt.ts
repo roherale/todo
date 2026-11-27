@@ -41,6 +41,8 @@ export function createTokenVerifier(options: VerifierOptions): (token: string) =
       algorithms: ['RS256', 'ES256'],
     });
     if (typeof payload.sub !== 'string' || payload.sub === '') throw new Error('token has no subject');
+    // Tokens for AI agents act on their own, not for a person, so they are not accepted (UC-AUTH-13).
+    if (payload['sub_profile'] === 'ai_agent') throw new Error('agent tokens are not accepted');
     return {
       sub: payload.sub,
       email: typeof payload['email'] === 'string' ? payload['email'] : undefined,

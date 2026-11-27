@@ -16,3 +16,4 @@
 | UC-AUTH-10 | A cookie-authenticated `POST`, `PATCH` or `DELETE` without the `X-Requested-With` header, or with an `Origin` other than the app's own, returns `403` and changes nothing. |
 | UC-AUTH-11 | `POST /auth/logout` ends the session on the server, clears the cookie, and signs out of WorkOS. The old cookie then gets `401`. |
 | UC-AUTH-12 | A new session ID is issued on every sign-in. A session ID set before sign-in is never accepted afterwards (session-fixation protection). |
+| UC-AUTH-13 | A Bearer token whose `sub_profile` claim is `ai_agent` returns `401` on `/api/v1/*` and on `/mcp` (with the discovery challenge there). Tokens with no `sub_profile`, or with any other value, are not affected. |

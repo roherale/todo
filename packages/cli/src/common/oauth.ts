@@ -7,6 +7,8 @@ import type { StoredTokens } from './token-store.js';
 export interface Discovery {
   authorizationEndpoint: string;
   tokenEndpoint: string;
+  /** The protected resource the API publishes; sent as `resource` so tokens carry its audience. */
+  resource: string;
 }
 
 type Fetch = typeof fetch;
@@ -25,6 +27,8 @@ async function getJson(fetchFn: Fetch, url: string, what: string): Promise<Recor
 /** The API names its authorization server; that server's metadata names the endpoints (RFC 9728, RFC 8414). */
 export async function discover(apiUrl: string, fetchFn: Fetch): Promise<Discovery> {
   const resource = await getJson(fetchFn, `${apiUrl}/.well-known/oauth-protected-resource`, 'the API\'s sign-in details');
+  const resourceId = resource['resource'];
+  if (typeof resourceId !== 'string' || resourceId === '') throw new CliError('The API does not say which resource to ask a token for');
   const servers = resource['authorization_servers'];
   const issuer = Array.isArray(servers) && typeof servers[0] === 'string' ? servers[0].replace(/\/+$/, '') : undefined;
   if (!issuer) throw new CliError('The API does not say which server handles sign-in');
@@ -34,7 +38,7 @@ export async function discover(apiUrl: string, fetchFn: Fetch): Promise<Discover
   if (typeof authorizationEndpoint !== 'string' || typeof tokenEndpoint !== 'string') {
     throw new CliError('The sign-in server did not publish its endpoints');
   }
-  return { authorizationEndpoint, tokenEndpoint };
+  return { authorizationEndpoint, tokenEndpoint, resource: resourceId };
 }
 
 export const base64url = (buf: Buffer) => buf.toString('base64url');
@@ -62,7 +66,7 @@ async function tokenRequest(fetchFn: Fetch, endpoint: string, params: Record<str
 }
 
 export function refreshTokens(fetchFn: Fetch, discovery: Discovery, clientId: string, refreshToken: string): Promise<StoredTokens> {
-  return tokenRequest(fetchFn, discovery.tokenEndpoint, { grant_type: 'refresh_token', refresh_token: refreshToken, client_id: clientId });
+  return tokenRequest(fetchFn, discovery.tokenEndpoint, { grant_type: 'refresh_token', refresh_token: refreshToken, client_id: clientId, resource: discovery.resource });
 }
 
 /** How a person signs in. Only the loopback flow exists; a device-code flow could implement the same interface. */
@@ -114,6 +118,7 @@ export function createLoopbackLogin(options: LoopbackOptions): LoginFlow {
           url.searchParams.set('client_id', options.clientId);
           url.searchParams.set('redirect_uri', redirectUri);
           url.searchParams.set('state', state);
+          url.searchParams.set('resource', options.discovery.resource);
           url.searchParams.set('code_challenge', challengeFor(verifier));
           url.searchParams.set('code_challenge_method', 'S256');
           void Promise.resolve(options.openBrowser(url.toString())).catch(reject);
@@ -125,6 +130,7 @@ export function createLoopbackLogin(options: LoopbackOptions): LoginFlow {
         redirect_uri: code.redirectUri,
         client_id: options.clientId,
         code_verifier: verifier,
+        resource: options.discovery.resource,
       });
     },
   };

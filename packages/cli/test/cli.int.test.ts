@@ -55,6 +55,41 @@ describe('login and logout', () => {
     expect(JSON.parse(readFileSync(h.configPath, 'utf8'))).toEqual({ apiUrl: stack.apiUrl, clientId: 'cli-client' });
   });
 
+  it('UC-CLI-01: the authorize and token requests carry the resource the API publishes', async () => {
+    const who = await stack.createUser();
+    stack.signInAs(who);
+    const h = harness(stack);
+    const published = (await (await fetch(`${stack.apiUrl}/.well-known/oauth-protected-resource`)).json()) as { resource: string };
+    expect(published.resource).toBe('https://todo.example.test/mcp');
+
+    const authorizeCalls = stack.log.authorizeParams.length;
+    const tokenCalls = stack.log.tokenCalls.length;
+    expect(await run(['login'], h.deps)).toBe(0);
+    expect(stack.log.authorizeParams.slice(authorizeCalls).map((p) => p.get('resource'))).toEqual([published.resource]);
+    const exchanges = stack.log.tokenCalls.slice(tokenCalls);
+    expect(exchanges.map((c) => c.grant)).toEqual(['authorization_code']);
+    expect(exchanges[0]!.params.get('resource')).toBe(published.resource);
+
+    // A refresh asks for the same resource, so refreshed tokens keep the audience.
+    h.tokens.current()!.accessToken = stack.issueTokens(who, -120).accessToken;
+    expect(await run(['profile'], h.deps)).toBe(0);
+    const refresh = stack.log.tokenCalls.slice(tokenCalls).find((c) => c.grant === 'refresh_token');
+    expect(refresh?.params.get('resource')).toBe(published.resource);
+  });
+
+  it('UC-CLI-01: if the API does not publish a resource, login stops with a clear message', async () => {
+    const h = harness(stack);
+    h.deps.fetch = async (input, init) => {
+      if (String(input).endsWith('/.well-known/oauth-protected-resource')) {
+        return new Response(JSON.stringify({ authorization_servers: [stack.authUrl] }), { status: 200 });
+      }
+      return fetch(input, init);
+    };
+    expect(await run(['login'], h.deps)).toBe(1);
+    expect(h.err.join('\n')).toContain('which resource');
+    expect(h.tokens.current()).toBeUndefined();
+  });
+
   it('UC-CLI-01: each login uses a new random port, state and PKCE verifier', async () => {
     const who = await stack.createUser();
     const redirects = new Set<string | null>();
