@@ -1,0 +1,20 @@
+# A local database for development and for the tests (port 5433, as in .env.example).
+# Start it with: docker compose up -d --wait
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_PASSWORD: postgres
+    ports:
+      # Set TODO_DB_PORT only if 5433 is already taken on this machine.
+      - '${TODO_DB_PORT:-5433}:5432'
+    volumes:
+      - todo-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  todo-db:
