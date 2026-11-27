@@ -14,8 +14,8 @@ afterAll(async () => {
 });
 
 describe('routes without a token', () => {
-  it('UC-AUTH-08: /healthz, /.well-known/* and the static web files work without a token', async () => {
-    expect((await request(ctx.app).get('/healthz')).status).toBe(200);
+  it('UC-AUTH-08: /health, /.well-known/* and the static web files work without a token', async () => {
+    expect((await request(ctx.app).get('/health')).status).toBe(200);
     const index = await request(ctx.app).get('/');
     expect(index.status).toBe(200);
     expect(index.text).toContain('<app-root>');

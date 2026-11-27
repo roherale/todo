@@ -45,7 +45,7 @@ jobs:
         run: |
           gcloud run services update-traffic "$SERVICE" --region "$REGION" \
             --to-revisions "${{ steps.target.outputs.revision }}=100"
-      - name: UC-DEPLOY-04 require /healthz to return 200
+      - name: UC-DEPLOY-04 require /health to return 200
         run: |
           url=$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')
-          curl --fail --silent --show-error --retry 5 --retry-delay 3 "$url/healthz"
+          curl --fail --silent --show-error --retry 5 --retry-delay 3 "$url/health"

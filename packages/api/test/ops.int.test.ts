@@ -20,7 +20,7 @@ describe('ops', () => {
   });
 
   it('UC-OPS-02: every response carries X-Request-Id and problem bodies repeat it', async () => {
-    const ok = await request(ctx.app).get('/healthz');
+    const ok = await request(ctx.app).get('/health');
     expect(ok.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
 
     const missing = await request(ctx.app).get('/nope');
@@ -39,7 +39,7 @@ describe('ops', () => {
   });
 
   it('UC-OPS-06: responses include a CSP with img-src \'self\' https:', async () => {
-    const res = await request(ctx.app).get('/healthz');
+    const res = await request(ctx.app).get('/health');
     expect(res.headers['content-security-policy']).toContain("img-src 'self' https:");
   });
 
@@ -66,17 +66,17 @@ describe('ops', () => {
 });
 
 describe('health', () => {
-  it('UC-OPS-01: /healthz is 200 without auth when the database answers', async () => {
+  it('UC-OPS-01: /health is 200 without auth when the database answers', async () => {
     const ctx = buildTestApp();
-    const res = await request(ctx.app).get('/healthz');
+    const res = await request(ctx.app).get('/health');
     await ctx.database.pool.end();
     expect(res.status).toBe(200);
   });
 
-  it('UC-OPS-01: /healthz is 503 when the database does not answer', async () => {
+  it('UC-OPS-01: /health is 503 when the database does not answer', async () => {
     const ctx = buildTestApp();
     await ctx.database.pool.end();
-    const res = await request(ctx.app).get('/healthz');
+    const res = await request(ctx.app).get('/health');
     expect(res.status).toBe(503);
   });
 });

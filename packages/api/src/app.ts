@@ -25,7 +25,7 @@ export interface AppDeps {
 /** The built web app: static files, plus index.html for client-side routes (never for API paths). */
 function serveWeb(app: Express, dir: string): void {
   app.use(express.static(dir, { index: false }));
-  app.get(/^\/(?!api\/|auth\/|mcp|healthz|\.well-known\/).*/, (_req, res, next) => {
+  app.get(/^\/(?!api\/|auth\/|mcp|health(?:\/|$)|\.well-known\/).*/, (_req, res, next) => {
     res.sendFile('index.html', { root: dir }, (err) => {
       if (err) next();
     });

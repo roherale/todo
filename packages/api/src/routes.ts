@@ -28,7 +28,7 @@ export interface RouteDeps {
 export function routes({ ping, logger, db, config, testKeys, now, provider, refresh }: RouteDeps): Router {
   const router = Router();
 
-  router.get('/healthz', async (_req, res) => {
+  router.get('/health', async (_req, res) => {
     try {
       await ping();
       res.status(200).json({ status: 'ok' });
