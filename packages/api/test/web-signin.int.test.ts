@@ -171,7 +171,7 @@ describe('routes that work without a session', () => {
     const who = { sub: `workos|${randomUUID()}`, email: 'new-person@example.test' };
     const s = setup({ fresh: who });
     // Reachable with no session or token: none of these answer 401 because of missing credentials.
-    expect((await request(s.app).get('/healthz')).status).toBe(200);
+    expect((await request(s.app).get('/health')).status).toBe(200);
     expect((await request(s.app).get('/auth/login')).status).toBe(302);
     expect((await request(s.app).get('/auth/callback')).status).toBe(400);
     expect((await request(s.app).post('/auth/logout').set(WEB_HEADERS)).status).toBe(204);

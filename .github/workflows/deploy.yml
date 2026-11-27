@@ -104,7 +104,7 @@ jobs:
               ([.status.traffic[] | select(.revisionName==$live) | .percent] | add) == 100
               and ([.status.traffic[] | select(.revisionName==$cand) | .percent // 0] | add // 0) == 0'
       - name: UC-DEPLOY-03 smoke tests against the candidate
-        run: pnpm tsx scripts/ci/smoke.ts "${{ steps.deploy.outputs.url }}" healthz
+        run: pnpm tsx scripts/ci/smoke.ts "${{ steps.deploy.outputs.url }}" health
       - name: Move all traffic to the candidate
         run: |
           gcloud run services update-traffic "$SERVICE" --region "$REGION" \
