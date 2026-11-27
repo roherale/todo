@@ -33,8 +33,8 @@ jobs:
           if [ -n "$REQUESTED" ]; then
             target="$REQUESTED"
           else
-            live=$(gcloud run services describe "$SERVICE" --region "$REGION" \
-              --format='value(status.traffic[0].revisionName)')
+            live=$(gcloud run services describe "$SERVICE" --region "$REGION" --format=json \
+              | jq -r '[.status.traffic[] | select((.percent // 0) > 0)] | sort_by(-.percent) | .[0].revisionName // empty')
             target=$(gcloud run revisions list --service "$SERVICE" --region "$REGION" \
               --sort-by='~metadata.creationTimestamp' --format='value(metadata.name)' \
               | grep -A1 -x "$live" | tail -n1)

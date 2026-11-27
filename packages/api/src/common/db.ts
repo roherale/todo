@@ -13,7 +13,7 @@ export interface Database {
 }
 
 export function createDatabase(connectionString: string): Database {
-  const pool = new pg.Pool({ connectionString, connectionTimeoutMillis: 2000 });
+  const pool = new pg.Pool({ connectionString, connectionTimeoutMillis: 5000 });
   // An idle client erroring must not crash the process.
   pool.on('error', () => undefined);
   const db = drizzle(pool);

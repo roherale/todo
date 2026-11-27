@@ -20,3 +20,4 @@
 | UC-DEPLOY-10 | `pnpm install` fails on any Node major version other than 26 (`engine-strict`), both locally and in CI. |
 | UC-DEPLOY-11 | The Artifact Registry cleanup policy keeps the 10 most recent images. |
 | UC-DEPLOY-12 | CI fails if any criterion ID defined in `docs/use-cases/` has no test or workflow step whose name starts with that ID, unless it's listed in the pending-criteria file with the milestone that will cover it. It also fails if a test, workflow step or pending entry names a criterion ID that doesn't exist, or if a pending criterion already has a test. |
+| UC-DEPLOY-13 | The deploy's migration step, run against an empty database, applies every migration, and running it again changes nothing. It fails with a clear message that names `DATABASE_URL` when that variable is not set. |
