@@ -13,13 +13,25 @@ A personal task list you can use from a web app, a command line tool, or an AI c
 
 ## Run it locally
 
+You need Node 26, pnpm and Docker.
+
 ```sh
-nvm use                 # Node 26
+nvm use                          # Node 26
 npm i -g pnpm@10.34.9
 pnpm install
-cp .env.example .env    # then edit
-docker run -d --rm --name todo-test-pg -e POSTGRES_PASSWORD=postgres -p 5433:5432 postgres:17
-pnpm test               # needs the database above (override with TEST_DATABASE_URL)
+docker compose up -d --wait      # the database, on port 5433
+cp .env.example .env             # then fill in the values (see the comments inside)
+pnpm --filter @todo/api migrate  # create the tables
+pnpm --filter @todo/web build    # build the web app
+pnpm --filter @todo/api dev      # start the API, which also serves the web app
+```
+
+Then open <http://localhost:8080>. Sign-in needs the sign-in values in `.env`, and `http://localhost:8080/auth/callback` and `http://localhost:8080/signed-out` registered with the sign-in provider. Rebuild the web app after changing it.
+
+Tests and checks (the tests use the same database; override it with `TEST_DATABASE_URL`):
+
+```sh
+pnpm test
 pnpm lint && pnpm typecheck
 ```
 
