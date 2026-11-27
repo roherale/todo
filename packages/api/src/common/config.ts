@@ -41,7 +41,9 @@ export type Config = z.infer<typeof ConfigSchema>;
 
 /** Validates the environment. Throws an error that names every missing or invalid variable. */
 export function loadConfig(env: NodeJS.ProcessEnv): Config {
-  const result = ConfigSchema.safeParse(env);
+  // A variable that is set but empty (an unset repository variable expands to "") counts as missing.
+  const present = Object.fromEntries(Object.entries(env).filter(([, value]) => value !== undefined && value !== ''));
+  const result = ConfigSchema.safeParse(present);
   if (!result.success) {
     const names = [...new Set(result.error.issues.map((i) => String(i.path[0])))];
     throw new Error(`Invalid configuration: ${names.join(', ')}`);

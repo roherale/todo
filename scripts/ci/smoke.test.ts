@@ -43,4 +43,27 @@ describe('smoke runner', () => {
     const results = await runSmoke('http://127.0.0.1:1', ['healthz']);
     expect(results[0]?.ok).toBe(false);
   });
+
+  it('UC-DEPLOY-03: a check is retried until it passes, within the attempts allowed', async () => {
+    let calls = 0;
+    const base = await serve((req, res) => {
+      calls += 1;
+      res.writeHead(calls < 3 ? 503 : 200).end('{}');
+      void req;
+    });
+    const results = await runSmoke(base, ['healthz'], { attempts: 5, delayMs: 1 });
+    expect(results[0]?.ok).toBe(true);
+    expect(calls).toBe(3);
+  });
+
+  it('UC-DEPLOY-03: a check that never passes fails after the last attempt', async () => {
+    let calls = 0;
+    const base = await serve((_req, res) => {
+      calls += 1;
+      res.writeHead(503).end();
+    });
+    const results = await runSmoke(base, ['healthz'], { attempts: 3, delayMs: 1 });
+    expect(results[0]?.ok).toBe(false);
+    expect(calls).toBe(3);
+  });
 });

@@ -65,3 +65,29 @@ describe('session key outside production', () => {
     expect(config.SESSION_ENCRYPTION_KEY).toBeUndefined();
   });
 });
+
+describe('empty variables', () => {
+  it('UC-OPS-04: a variable that is set but empty counts as missing, and an empty optional one as unset', () => {
+    expect(() => loadConfig({ DATABASE_URL: '' })).toThrowError(/DATABASE_URL/);
+    const config = loadConfig({ DATABASE_URL: 'postgres://x', SESSION_KEY_VERSION: '', CLI_CLIENT_ID: '', PORT: '', LOG_LEVEL: '' });
+    expect(config.SESSION_KEY_VERSION).toBe(1);
+    expect(config.CLI_CLIENT_ID).toBeUndefined();
+    expect(config.PORT).toBe(8080);
+  });
+
+  it('UC-OPS-04: in production an empty required variable still stops startup, naming it', () => {
+    expect(() =>
+      loadConfig({
+        DATABASE_URL: 'postgres://x',
+        NODE_ENV: 'production',
+        WORKOS_ISSUER: 'https://auth.example.com',
+        WORKOS_AUDIENCE: 'aud',
+        WORKOS_JWKS_URL: 'https://auth.example.com/jwks',
+        WORKOS_API_KEY: 'sk',
+        WORKOS_CLIENT_ID: '',
+        SESSION_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString('base64'),
+        ALLOWED_SIGNUP_EMAILS: 'a@example.com',
+      }),
+    ).toThrowError(/WORKOS_CLIENT_ID/);
+  });
+});
