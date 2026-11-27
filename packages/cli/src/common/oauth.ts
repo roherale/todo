@@ -4,6 +4,9 @@ import type { AddressInfo } from 'node:net';
 import { CliError } from './errors.js';
 import type { StoredTokens } from './token-store.js';
 
+/** Asked for on sign-in. `offline_access` is what makes the server issue a refresh token. */
+export const LOGIN_SCOPE = 'openid profile email offline_access';
+
 export interface Discovery {
   authorizationEndpoint: string;
   tokenEndpoint: string;
@@ -45,6 +48,15 @@ export const base64url = (buf: Buffer) => buf.toString('base64url');
 export const newVerifier = () => base64url(randomBytes(32));
 export const challengeFor = (verifier: string) => base64url(createHash('sha256').update(verifier).digest());
 
+/** The server's own diagnosis (its `error` and `error_description` fields only, never anything else from the body). */
+function refusal(body: Record<string, unknown>): string {
+  const clean = (value: unknown) => (typeof value === 'string' ? value.replace(/\s+/g, ' ').trim().slice(0, 200) : '');
+  const error = clean(body['error']);
+  const description = clean(body['error_description']);
+  if (!error) return 'The sign-in server refused the request';
+  return `The sign-in server refused the request: ${error}${description ? ` (${description})` : ''}`;
+}
+
 async function tokenRequest(fetchFn: Fetch, endpoint: string, params: Record<string, string>): Promise<StoredTokens> {
   let res: Response;
   try {
@@ -57,10 +69,12 @@ async function tokenRequest(fetchFn: Fetch, endpoint: string, params: Record<str
     throw new CliError('Could not reach the sign-in server');
   }
   const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok) throw new CliError(refusal(body));
   const access = body['access_token'];
   const refresh = body['refresh_token'];
-  if (!res.ok || typeof access !== 'string' || typeof refresh !== 'string') {
-    throw new CliError('The sign-in server refused the request');
+  if (typeof access !== 'string') throw new CliError('The sign-in server did not return an access token');
+  if (typeof refresh !== 'string') {
+    throw new CliError('The sign-in server did not return a refresh token. It may be missing the offline_access permission.');
   }
   return { accessToken: access, refreshToken: refresh };
 }
@@ -118,6 +132,7 @@ export function createLoopbackLogin(options: LoopbackOptions): LoginFlow {
           url.searchParams.set('client_id', options.clientId);
           url.searchParams.set('redirect_uri', redirectUri);
           url.searchParams.set('state', state);
+          url.searchParams.set('scope', LOGIN_SCOPE);
           url.searchParams.set('resource', options.discovery.resource);
           url.searchParams.set('code_challenge', challengeFor(verifier));
           url.searchParams.set('code_challenge_method', 'S256');
