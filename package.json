@@ -1,0 +1,29 @@
+{
+  "name": "todo",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=26 <27"
+  },
+  "packageManager": "pnpm@10.34.9",
+  "scripts": {
+    "build": "pnpm -r build",
+    "lint": "eslint .",
+    "typecheck": "pnpm -r build && pnpm -r typecheck && tsc -p scripts/tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@stryker-mutator/core": "^10.1.1",
+    "@stryker-mutator/vitest-runner": "^10.1.1",
+    "@types/node": "^26.6.11",
+    "@vitest/coverage-v8": "^5.1.2",
+    "@vitest/eslint-plugin": "^1.6.28",
+    "eslint": "^10.15.0",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.74.0",
+    "vitest": "^5.1.2"
+  }
+}

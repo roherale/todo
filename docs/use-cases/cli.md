@@ -4,7 +4,7 @@
 
 | ID | Criterion |
 |---|---|
-| UC-CLI-01 | `todo login` opens the browser to WorkOS using PKCE, with a loopback redirect on a random port, and stores the refresh token in the OS keychain. No token is ever written to a file or printed. |
+| UC-CLI-01 | `todo login` opens the browser to WorkOS using PKCE, with a loopback redirect on a random port. The authorize and token requests include the `resource` published by the API's protected-resource metadata, so the CLI's tokens carry the same audience as the AI chats' tokens. The refresh token is stored in the OS keychain. No token is ever written to a file or printed. |
 | UC-CLI-02 | `todo logout` removes the token from the keychain. After that, any command prints "Not logged in, run `todo login`" and exits with a non-zero code. |
 | UC-CLI-03 | When the access token expires, the CLI refreshes it once using the stored refresh token and retries the command. If refreshing fails, it behaves as in UC-CLI-02. |
 | UC-CLI-04 | If the API returns `signup-required`, the CLI prints the sign-up URL and exits with a non-zero code. |

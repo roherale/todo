@@ -31,10 +31,10 @@ Time-based criteria are tested with a controllable clock. "Web" means a cookie s
 |---|---|
 | UC-SESSION-12 | The web session cookie value is 32 random bytes, base64url-encoded. The database stores only its SHA-256 hash: the raw cookie value doesn't appear in any column. |
 | UC-SESSION-13 | The WorkOS refresh token is stored only encrypted (AES-256-GCM) and is never in plain text. Encrypting the same token twice gives different ciphertexts. Decryption fails if the ciphertext, the IV, or the bound `userId` is altered. Each row records the key version used. |
-| UC-SESSION-14 | CLI and MCP sessions are stored by `sha256(sid)` together with `client_id`. The raw `sid` doesn't appear in any column. |
-| UC-SESSION-15 | The `sessions` table has exactly these columns: `id`, `userId`, `clientType`, `idHash`, `refreshTokenEnc`, `keyVersion`, `firstSeenAt`, `lastSeenAt`, `endedAt`. In particular, there is no IP address and no user agent. |
+| UC-SESSION-14 | CLI and MCP sessions are stored with `idHash = sha256(client_id + ":" + sid)`. The raw `sid` doesn't appear in any column, and the same `sid` from two different clients gives two different sessions. |
+| UC-SESSION-15 | The `sessions` table has exactly these columns: `id`, `userId`, `clientType`, `idHash`, `refreshTokenEnc`, `keyVersion`, `refreshedAt`, `firstSeenAt`, `lastSeenAt`, `endedAt`. In particular, there is no IP address and no user agent. |
 | UC-SESSION-16 | No API response body or header (except `Set-Cookie` at sign-in) ever contains a session ID, a cookie value, or any token. |
-| UC-SESSION-17 | Startup fails if the session encryption key is missing or the wrong length (see UC-OPS-04). |
+| UC-SESSION-17 | In production config, startup fails if the session encryption key is missing. In any config, startup fails if the key is the wrong length. Outside production, a missing key is replaced by a random key for that process only. |
 
 ## Ending sessions
 
@@ -45,3 +45,5 @@ Time-based criteria are tested with a controllable clock. "Web" means a cookie s
 | UC-SESSION-20 | `end-all` never ends another user's sessions. User B's sessions are unaffected when user A calls it. |
 | UC-SESSION-21 | Deleting an account deletes all of that user's session rows. |
 | UC-SESSION-22 | When a user signs in, that user's ended and expired session rows are deleted. The deploy cleanup step deletes every ended or expired row. Rows for active sessions are never deleted by either. |
+| UC-SESSION-23 | A web session's WorkOS refresh token is used at most once every 15 minutes, on a request that arrives when `refreshedAt` is 15 minutes old or more. The rotated refresh token is stored encrypted, and `refreshedAt` is updated. Bearer sessions have no refresh token and never refresh. |
+| UC-SESSION-24 | A Bearer token whose `client_id` equals the configured `CLI_CLIENT_ID` is a `cli` session. One whose `client_id` equals the web app's client ID gets `401`. Any other client is an `mcp` session. |

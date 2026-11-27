@@ -1,0 +1,90 @@
+name: ci
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Scan for secrets
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env: { POSTGRES_PASSWORD: postgres }
+        ports: ['5433:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: npm i -g pnpm@10.34.9
+      - name: UC-DEPLOY-10 pnpm install runs on Node 26 only
+        run: |
+          node -v | grep -q '^v26\.'
+          pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - name: Tests and coverage gates
+        run: pnpm test:coverage
+      - name: Web tests and coverage gates
+        run: pnpm --filter @todo/web test
+      - name: UC-ISO-08 mutation testing kills owner-condition mutants (api changes only)
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -q '^packages/api/'; then
+            pnpm exec stryker run
+          fi
+      - name: UC-DEPLOY-12 every criterion has a test and every named criterion exists
+        # Every area is checked; criteria not built yet are listed in scripts/ci/pending-criteria.json.
+        run: pnpm tsx scripts/ci/check-criteria.ts
+      - name: UC-DEPLOY-09 every FROM line is pinned by digest
+        run: pnpm tsx scripts/ci/check-pins.ts Dockerfile
+      - name: UC-DEPLOY-05 migration check
+        run: >-
+          pnpm tsx scripts/ci/check-migrations.ts
+          origin/${{ github.base_ref }}
+          ${{ contains(github.event.pull_request.labels.*.name, 'migration-contract-approved') }}
+      - name: Test-change check
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'test-change-approved') }}
+        run: |
+          removed=$(git diff --numstat --diff-filter=M "origin/${{ github.base_ref }}...HEAD" -- '*.test.ts' 'packages/api/test/**' \
+            | awk '$2 > 0 { print $3 }')
+          if [ -n "$removed" ]; then
+            echo "Existing test lines were changed or deleted in:"; echo "$removed"
+            echo "Add the test-change-approved label (after the owner signs off) and justify each change."
+            exit 1
+          fi
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: >-
+          docker build -t todo-pr
+          --build-arg SOURCE_REPO=${{ github.server_url }}/${{ github.repository }}
+          --build-arg REVISION=${{ github.sha }} .
+      - name: UC-DEPLOY-08 runtime image is non-root, shell-less and source-free
+        run: scripts/ci/check-image.sh todo-pr
+      - name: UC-DEPLOY-07 Trivy fails on fixable critical or high vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: todo-pr
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
